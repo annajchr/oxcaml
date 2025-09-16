@@ -1,32 +1,39 @@
 open! Core
 
 type player_kind =
-  | X
-  | O
+  | Black
+  | White
+
 
 type cell_position =
   { row : int
   ; column : int
   }
 
+type stone =
+  { position : cell_position
+  ; owner : player_kind
+  }
+
+type move = 
+  | Place of cell_position
+  | Pass
+
 type decision =
   | In_progress of { whose_turn : player_kind }
   | Winner of player_kind
   | Stalemate
 
+
 type game_state =
-  { board : (cell_position * player_kind) list
-  ; rows : int
-  ; columns : int
-  ; winning_sequence_length : int
+  { board : stone list
+  ; goal_captures : int
+  ; black_captures : int
+  ; white_captures : int
   ; decision : decision
   }
 
-type move = cell_position
-
 val initial_state : game_state
-val move_at_0x0 : move
-val state_after_move_at_0x0 : game_state
-val before_terminal_state : game_state
-val move_to_terminal_state : move
-val terminal_state : game_state
+val example_move : move
+val example_game_state : game_state
+val example_win_state : game_state
