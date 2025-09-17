@@ -4,7 +4,6 @@ type player_kind =
   | Black
   | White
 
-
 type cell_position =
   { row : int
   ; column : int
@@ -15,7 +14,7 @@ type stone =
   ; owner : player_kind
   }
 
-type move = 
+type move =
   | Place of cell_position
   | Pass
 
@@ -24,8 +23,7 @@ type decision =
   | Winner of player_kind
   | Stalemate
 
-
-  type game_state =
+type game_state =
   { board : stone list
   ; goal_captures : int
   ; black_captures : int
@@ -45,7 +43,7 @@ let initial_state : game_state =
 let example_move : move = Place { row = 0; column = 0 }
 
 let example_game_state : game_state =
-  { board = [{ position = { row = 0; column = 0 }; owner = White }]
+  { board = [ { position = { row = 0; column = 0 }; owner = White } ]
   ; goal_captures = 10
   ; black_captures = 0
   ; white_captures = 0
@@ -54,11 +52,12 @@ let example_game_state : game_state =
 ;;
 
 let example_win_state : game_state =
-  { board = [{ position = { row = 0; column = 0 }; owner = White }
-            ; {position = { row = 1; column = 0 }; owner = Black }
-            ; {position = { row = 15; column = 15 }; owner = White }
-            ; {position = { row = 0; column = 1 }; owner = Black }
-            ]
+  { board =
+      [ { position = { row = 0; column = 0 }; owner = White }
+      ; { position = { row = 1; column = 0 }; owner = Black }
+      ; { position = { row = 15; column = 15 }; owner = White }
+      ; { position = { row = 0; column = 1 }; owner = Black }
+      ]
   ; goal_captures = 1
   ; black_captures = 1
   ; white_captures = 0

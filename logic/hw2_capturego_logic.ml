@@ -25,10 +25,11 @@ module Cell_position = struct
 end
 
 module Stone = struct
-  type t = {
-    position : Cell_position.t;
-    owner : Player_kind.t;
-  } [@@deriving sexp, equal, compare]
+  type t =
+    { position : Cell_position.t
+    ; owner : Player_kind.t
+    }
+  [@@deriving sexp, equal, compare]
 end
 
 module Move = struct
@@ -53,37 +54,51 @@ module Decision = struct
 end
 
 module Game_state = struct
-  module Board_set = Set.Make(struct
+  (* Used to store copies of previous boards to handle KO condition *)
+  module Board_state = struct
     type t = Stone.t list [@@deriving sexp, compare]
-  end)
 
-  type t = {
-    board : Stone.t list;
-    previous_states : Board_set.t;
-    goal_captures : int;
-    black_captures : int;
-    white_captures : int;
-    decision : Decision.t;
-    last_move : Move.t option;
-  } [@@deriving sexp, equal]
+    let of_board (board : Stone.t option array array) : t =
+      Array.fold board ~init:[] ~f:(fun acc row ->
+        Array.fold row ~init:acc ~f:(fun acc cell ->
+          match cell with
+          | Some stone -> stone :: acc
+          | None -> acc))
+      |> List.rev
+    ;;
+  end
+
+  module Board_set = Set.Make (Board_state)
+
+  type t =
+    { board : Stone.t option array array (* 19x19 board *)
+    ; previous_states : Board_set.t
+    ; goal_captures : int
+    ; black_captures : int
+    ; white_captures : int
+    ; decision : Decision.t
+    ; last_move : Move.t option
+    }
+  [@@deriving sexp, equal]
 
   module Create_error = struct
-    type t =
-      | Goal_captures_less_than_one
-    [@@deriving sexp]
+    type t = Goal_captures_less_than_one [@@deriving sexp]
   end
 
   let create ~goal_captures : (t, Create_error.t list) Result.t =
-    if goal_captures < 1 then Error [Create_error.Goal_captures_less_than_one]
-    else Ok {
-      board = [];
-      previous_states = Board_set.empty;
-      goal_captures;
-      black_captures = 0;
-      white_captures = 0;
-      decision = Decision.In_progress { whose_turn = Player_kind.White };
-      last_move = None;
-    }
+    if goal_captures < 1
+    then Error [ Create_error.Goal_captures_less_than_one ]
+    else
+      Ok
+        { board = Array.make_matrix ~dimx:19 ~dimy:19 None
+        ; previous_states = Board_set.empty
+        ; goal_captures
+        ; black_captures = 0
+        ; white_captures = 0
+        ; decision = Decision.In_progress { whose_turn = Player_kind.White }
+        ; last_move = None
+        }
+  ;;
 
   module Move_error = struct
     type t =
@@ -101,41 +116,60 @@ module Game_state = struct
     | false, false -> None
   ;;
 
-  let check_positonal_ko (board : Stone.t list) (previous_states : Board_set.t) : bool =
-    Set.mem previous_states board
+  let check_positonal_ko
+      (board : Stone.t option array array)
+      (previous_states : Board_set.t)
+      : bool
+    =
+    let board_list = Board_state.of_board board in
+    Set.mem previous_states board_list
   ;;
 
   let make_move (t : t) (move : Move.t) : (t, Move_error.t) Result.t =
     match t.decision with
     | Decision.Winner _ | Decision.Stalemate -> Error Move_error.Game_is_over
     | Decision.In_progress { whose_turn } ->
-      match move with
-      | Move.Pass ->
-        Ok { t with decision = Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }; last_move = Some Move.Pass }
-      | Move.Place pos ->
-        if List.exists t.board ~f:(fun stone -> Cell_position.equal stone.position pos) then Error Move_error.Space_already_filled
-        else if pos.row < 0 || pos.row >= 19 || pos.column < 0 || pos.column >= 19 then Error Move_error.Illegal_cell_position
-        else if check_positonal_ko t.board t.previous_states then Error Move_error.Ko_violation
-        else
-          let new_stone = { Stone.position = pos; owner = whose_turn } in
-          let new_board = new_stone :: t.board in
-          let new_previous_states = Set.add t.previous_states new_board in
-          let black_captures = t.black_captures in
-          let white_captures = t.white_captures in
-          let goal_captures = t.goal_captures in
-          let winner = check_winner t in
-          let decision =
-            match winner with
-            | Some p -> Decision.Winner p
-            | None -> Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }
-          in
-          Ok {
-            board = new_board;
-            previous_states = new_previous_states;
-            goal_captures;
-            black_captures;
-            white_captures;
-            decision;
-            last_move = Some move;
-          }
+      (match move with
+       | Move.Pass ->
+         Ok
+           { t with
+             decision =
+               Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }
+           ; last_move = Some Move.Pass
+           }
+       | Move.Place pos ->
+         if pos.row < 0 || pos.row >= 19 || pos.column < 0 || pos.column >= 19
+         then Error Move_error.Illegal_cell_position
+         else if Option.is_some t.board.(pos.row).(pos.column)
+         then Error Move_error.Space_already_filled
+         else (
+           let new_board = Array.map ~f:Array.copy t.board in
+           new_board.(pos.row).(pos.column)
+           <- Some { Stone.position = pos; owner = whose_turn };
+           if check_positonal_ko new_board t.previous_states
+           then Error Move_error.Ko_violation
+           else (
+             let new_previous_states =
+               Set.add t.previous_states (Board_state.of_board new_board)
+             in
+             let black_captures = t.black_captures in
+             let white_captures = t.white_captures in
+             let goal_captures = t.goal_captures in
+             let winner = check_winner t in
+             let decision =
+               match winner with
+               | Some p -> Decision.Winner p
+               | None ->
+                 Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }
+             in
+             Ok
+               { board = new_board
+               ; previous_states = new_previous_states
+               ; goal_captures
+               ; black_captures
+               ; white_captures
+               ; decision
+               ; last_move = Some move
+               })))
+  ;;
 end

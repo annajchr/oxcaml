@@ -25,7 +25,7 @@ module Stone : sig
     { position : Cell_position.t
     ; owner : Player_kind.t
     }
-    [@@deriving sexp, equal, compare]
+  [@@deriving sexp, equal, compare]
 end
 
 module Move : sig
@@ -48,25 +48,21 @@ module Game_state : sig
   module Board_set : Set.S with type Elt.t = Stone.t list
 
   type t =
-    { board : Stone.t list
+    { board : Stone.t option array array (** 19x19 board *)
     ; previous_states : Board_set.t
     ; goal_captures : int
     ; black_captures : int
     ; white_captures : int
     ; decision : Decision.t
-    ; last_move : Move.t option (* For animation purposes. *)
+    ; last_move : Move.t option (** For animation purposes. *)
     }
   [@@deriving sexp, equal]
 
   module Create_error : sig
-    type t =
-      | Goal_captures_less_than_one
-    [@@deriving sexp]
+    type t = Goal_captures_less_than_one [@@deriving sexp]
   end
 
-  val create
-    :  goal_captures: int
-    -> (t, Create_error.t list) Result.t
+  val create : goal_captures:int -> (t, Create_error.t list) Result.t
 
   module Move_error : sig
     type t =
@@ -85,7 +81,11 @@ module Game_state : sig
   This function implements the Positional Super-KO rule, which states that a player may not make a move that would result
   in any previous board position.
   *)
-  val check_positonal_ko : Stone.t list -> Board_set.t -> bool
+  val check_positonal_ko : Stone.t option array array -> Board_set.t -> bool
+
+  (* given the new board after the player makes a valid move, the function removes any captured stones
+     and returns the number of stones captured, for scoring purposes. *)
+  (* val remove_captured_stones : Stone.t list -> Player_kind.t -> Stone.t list * int *)
   val make_move : t -> Move.t -> (t, Move_error.t) Result.t
 
   (* module For_testing : sig

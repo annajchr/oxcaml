@@ -4,7 +4,6 @@ type player_kind =
   | Black
   | White
 
-
 type cell_position =
   { row : int
   ; column : int
@@ -15,7 +14,7 @@ type stone =
   ; owner : player_kind
   }
 
-type move = 
+type move =
   | Place of cell_position
   | Pass
 
@@ -23,7 +22,6 @@ type decision =
   | In_progress of { whose_turn : player_kind }
   | Winner of player_kind
   | Stalemate
-
 
 type game_state =
   { board : stone list
