@@ -142,8 +142,8 @@ module Game_state = struct
                    else None)
                in
                (* Add current stone to the group and the stone's neighbors to the positions left to search list. *)
-               find_group_and_liberty stone (hd :: group) (neighbors @ tl)
-               (* If the stone is owned by the opposite player, we skip that stone. *))
+               find_group_and_liberty stone (hd :: group) (neighbors @ tl))
+             (* If the stone is owned by the opposite player, we skip that stone. *)
              else find_group_and_liberty stone group tl)
       in
       find_group_and_liberty stone [] [ stone_pos ]
