@@ -83,6 +83,14 @@ module Game_state : sig
   *)
   val check_positonal_ko : Stone.t option array array -> Board_set.t -> bool
 
+  (* Validates the move against the possible Move errors. Returns an error if a move error is detected,
+    otherwise returns the updated board with the current move stone on the board. *)
+  val validate_move
+    :  t
+    -> Player_kind.t
+    -> Move.t
+    -> Move_error.t option * Stone.t option array array
+
   (* given the new board after the player makes a valid move, the function removes any captured stones
      and returns the number of stones captured, for scoring purposes. *)
   (* val remove_captured_stones : Stone.t list -> Player_kind.t -> Stone.t list * int *)
