@@ -70,8 +70,11 @@ module Game_state : sig
       | Space_already_filled
       | Illegal_cell_position
       | Ko_violation
+      | Self_capture_violation
     [@@deriving sexp]
   end
+
+  val get_all_moves : t -> Move.t list
 
   (* Atari Go/ Go rules include Ko condition; https://www.pandanet.co.jp/English/learning_go/learning_go_8.html.
   There are many variations of Simple-/Super- KO rules. For Atari Go (which is first-to-one capture), a KO rule is not
