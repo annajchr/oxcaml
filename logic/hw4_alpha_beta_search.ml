@@ -1,4 +1,4 @@
-open! Core
+(* open! Core
 open Hw2_tictactoe_logic
 
 let heuristic_value (node : Game_state.t) =
@@ -102,4 +102,4 @@ let alpha_beta (node : Game_state.t) ~depth =
       |> Option.map ~f:(fun (move, _child, _value) -> move)
     in
     best_move
-;;
+;; *)
