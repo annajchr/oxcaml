@@ -194,12 +194,12 @@ let%expect_test "Game_state.make_move: place stones and capture 1 stone" =
     Goal captures: 3 |}];
 ;;
 
-(* let%expect_test "Game_state.make_move: illegal cell position error" =
+let%expect_test "Game_state.make_move: illegal cell position error" =
   let state = Game_state.create ~goal_captures:1 |> ok_exn in
   let result = Game_state.make_move state (Move.Place { row = 19; column = 0 }) in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Illegal_cell_position) |}]
-
+(* 
 let%expect_test "Game_state.make_move: space already filled error" =
   let state = Game_state.create ~goal_captures:1 |> ok_exn in
   let state2 = Game_state.make_move state (Move.Place { row = 0; column = 0 }) |> ok_exn_move in
