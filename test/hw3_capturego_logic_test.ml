@@ -149,8 +149,8 @@ let%expect_test "Game_state.make_move: place stones and capture 1 stone" =
   let state = Game_state.create ~goal_captures:3 |> ok_exn in
   let moves =
     [ Move.Place { row = 1; column = 1 } (* White *)
-    ; Move.Place { row = 0; column = 1 }
-    ; Move.Pass (* White: pass to allow capture *)
+    ; Move.Place { row = 0; column = 1 } (* Black: top *)
+    ; Move.Pass (* White: passes every move to allow capture *)
     ; Move.Place { row = 1; column = 0 } (* Black: left *)
     ; Move.Pass 
     ; Move.Place { row = 2; column = 1 } (* Black: bottom *)
