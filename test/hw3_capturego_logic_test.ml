@@ -65,7 +65,10 @@ let pretty_print_board (state : Game_state.t) =
     done;
     print_endline ""
   done;
-  print_s [%sexp (state.decision : Decision.t)]
+  print_s [%sexp (state.decision : Decision.t)];
+  Stdio.printf "Black captures: %d\n" state.black_captures;
+  Stdio.printf "White captures: %d\n" state.white_captures;
+  Stdio.printf "Goal captures: %d\n" state.goal_captures;
 ;;
 
 let random_walk_capturego ~random_seed =
@@ -109,6 +112,9 @@ let%expect_test "Capture Go random walk till terminal state (goal 1)" =
     . W . . . B B W . B . B B . B . W . .
     B . W . B . B . . B B W . W . B W . W
     (Winner Black)
+    Black captures: 1
+    White captures: 0
+    Goal captures: 1
     |}];
   random_walk_capturego ~random_seed:7;
   [%expect
@@ -133,27 +139,10 @@ let%expect_test "Capture Go random walk till terminal state (goal 1)" =
     B B . W . W . . . W . W . . . . . B W
     W . W W . . W . B . W . B . W . . . B
     (Winner Black)
+    Black captures: 1
+    White captures: 0
+    Goal captures: 1
     |}]
-;;
-
-let pretty_print_board (state : Game_state.t) =
-  let board = state.board in
-  for row = 0 to Array.length board - 1 do
-    for col = 0 to Array.length board.(row) - 1 do
-      match board.(row).(col) with
-      | None -> print_string ". "
-      | Some stone ->
-        print_string
-          (match stone.owner with
-           | Player_kind.Black -> "B "
-           | Player_kind.White -> "W ")
-    done;
-    print_endline ""
-  done;
-  print_s [%sexp (state.decision : Decision.t)];
-  Stdio.printf "Black captures: %d\n" state.black_captures;
-  Stdio.printf "White captures: %d\n" state.white_captures;
-  Stdio.printf "Goal captures: %d\n" state.goal_captures;
 ;;
 
 let%expect_test "Game_state.make_move: place stones and capture 1 stone" =
