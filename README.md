@@ -1,4 +1,4 @@
-# TicTacToe using OCaml
+# Capture Go using OCaml
 
 To make a dev-environment, press the green "Code" button, then select "+" next to "Codespaces".  A new Codespace will open.  It currently takes 20-40 minutes to initialize; please be patient.
 
