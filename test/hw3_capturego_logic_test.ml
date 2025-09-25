@@ -2,6 +2,14 @@ open! Core
 open Capturego_logic_library
 open Hw2_capturego_logic
 
+let rec play_moves state moves =
+  match moves with
+  | [] -> state
+  | m :: ms ->
+    match Game_state.make_move state m with
+    | Ok s -> play_moves s ms
+    | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
+
 let ok_exn result =
   match result with
   | Ok v -> v
@@ -155,16 +163,8 @@ let%expect_test "Game_state.make_move: place stones and capture 1 stone" =
     ; Move.Pass 
     ; Move.Place { row = 2; column = 1 } (* Black: bottom *)
     ; Move.Pass
-    ; Move.Place { row = 1; column = 2 } (* Black: right, captures black at (1,1) *)
+    ; Move.Place { row = 1; column = 2 } (* Black: right, captures white stone at (1,1) *)
     ]
-  in
-  let rec play_moves state moves =
-    match moves with
-    | [] -> state
-    | m :: ms ->
-      match Game_state.make_move state m with
-      | Ok s -> play_moves s ms
-      | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
   in
   let final_state = play_moves state moves in
   pretty_print_board final_state;
@@ -199,48 +199,44 @@ let%expect_test "Game_state.make_move: illegal cell position error" =
   let result = Game_state.make_move state (Move.Place { row = 19; column = 0 }) in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Illegal_cell_position) |}]
-(* 
+
 let%expect_test "Game_state.make_move: space already filled error" =
   let state = Game_state.create ~goal_captures:1 |> ok_exn in
-  let state2 = Game_state.make_move state (Move.Place { row = 0; column = 0 }) |> ok_exn_move in
-  let result = Game_state.make_move state2 (Move.Place { row = 0; column = 0 }) in
+
+  (* Attempts to place stone in 0,0 after it is occupied. *)
+  let moves = [ Move.Place { row = 0; column = 0 }; 
+                Move.Place { row = 0; column = 0 } ] in
+  let result =
+    match Game_state.make_move state (List.hd_exn moves) with
+    | Error e -> Error e
+    | Ok s -> Game_state.make_move s (List.nth_exn moves 1)
+  in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Space_already_filled) |}]
 
 let%expect_test "Game_state.make_move: Game_is_over error" =
   let state = Game_state.create ~goal_captures:1 |> ok_exn in
-  (* Black places a stone *)
-  let state1 = Game_state.make_move state (Move.Place { row = 1; column = 1 }) |> ok_exn_move in
-  (* White surrounds and captures it *)
+
+  (* Same moves as 1 stone capture test case *)
   let moves =
-    [ Move.Place { row = 0; column = 1 } (* White *)
-    ; Move.Place { row = 1; column = 0 } (* Black *)
-    ; Move.Place { row = 2; column = 1 } (* White *)
-    ; Move.Place { row = 1; column = 2 } (* Black *)
-    ; Move.Place { row = 0; column = 0 } (* White *)
+    [ Move.Place { row = 1; column = 1 }
+    ; Move.Place { row = 0; column = 1 }
+    ; Move.Pass
+    ; Move.Place { row = 1; column = 0 }
+    ; Move.Pass 
+    ; Move.Place { row = 2; column = 1 }
+    ; Move.Pass
+    ; Move.Place { row = 1; column = 2 } (* Black: captures white stone at (1,1) *)
     ]
   in
-  let rec play_moves state moves =
-    match moves with
-    | [] -> state
-    | m :: ms ->
-      match Game_state.make_move state m with
-      | Ok s -> play_moves s ms
-      | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
-  in
-  let final_state = play_moves state1 moves in
-  (* White captures and wins first-to-1 capture game *)
-  let result_win = Game_state.make_move final_state (Move.Place { row = 0; column = 2 }) in
-  
-  (* If another move were attempted after game ends, error thrown. *)
-  let result_after =
-    (match result_win with
-     | Ok s -> Game_state.make_move s (Move.Place { row = 2; column = 2 })
-     | Error _ -> failwith "Should not error on winning move")
-  in
+  let final_state = play_moves state moves in
+
+  (* Try to make a move after the game is over *)
+  let result_after = Game_state.make_move final_state (Move.Place { row = 2; column = 2 }) in
   print_s [%sexp (result_after : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Game_is_over) |}]
 
+  (* 
 let%expect_test "Game_state.make_move: Self_capture_violation error" =
   let state = Game_state.create ~goal_captures:5 |> ok_exn in
   (* Set up a board where a move would result in self-capture *)
