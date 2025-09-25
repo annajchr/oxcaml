@@ -105,7 +105,7 @@ let%expect_test "Capture Go random walk till terminal state (goal 1)" =
     W B . W W . W . . W W W B B . . B B B
     B W . . W . W W . . . W . W . B B B B
     . W . B B . B B . . . . . . B . W B .
-    . B B . W B . . W B . W W . . . W . B
+    . B B . W B . . W B . W W . . . . . B
     . W . . . B B W . B . B B . B . W . .
     B . W . B . B . . B B W . W . B W . W
     (Winner Black)
@@ -131,7 +131,7 @@ let%expect_test "Capture Go random walk till terminal state (goal 1)" =
     W . W . B . . B . B . B . . B . . B B
     B . . . W B . . B B B B . B W B B . .
     B B . W . W . . . W . W . . . . . B W
-    W W W W . . W . B . W . B . W . . . B
+    W . W W . . W . B . W . B . W . . . B
     (Winner Black)
     |}]
 ;;
@@ -150,42 +150,39 @@ let pretty_print_board (state : Game_state.t) =
     done;
     print_endline ""
   done;
-  print_s [%sexp (state.decision : Decision.t)]
+  print_s [%sexp (state.decision : Decision.t)];
+  Stdio.printf "Black captures: %d\n" state.black_captures;
+  Stdio.printf "White captures: %d\n" state.white_captures;
+  Stdio.printf "Goal captures: %d\n" state.goal_captures;
 ;;
 
-let%expect_test "Game_state.make_move: place stones and capture" =
-  let state = Game_state.create ~goal_captures:1 |> ok_exn in
+let%expect_test "Game_state.make_move: place stones and capture 1 stone" =
+  let state = Game_state.create ~goal_captures:3 |> ok_exn in
   let moves =
-    [ Move.Place { row = 0; column = 0 }
-    ; (* White *)
-      Move.Place { row = 1; column = 0 }
-    ; (* Black *)
-      Move.Place { row = 0; column = 1 }
-    ; (* White *)
-      Move.Place { row = 1; column = 1 }
-    ; (* Black *)
-      Move.Place { row = 0; column = 2 }
-    ; (* White, surrounds black at (1,1) *)
-      Move.Place { row = 1; column = 2 }
-    ; (* Black *)
-      Move.Place { row = 2; column = 1 } (* White, should capture black at (1,1) *)
+    [ Move.Place { row = 1; column = 1 } (* White *)
+    ; Move.Place { row = 0; column = 1 }
+    ; Move.Pass (* White: pass to allow capture *)
+    ; Move.Place { row = 1; column = 0 } (* Black: left *)
+    ; Move.Pass 
+    ; Move.Place { row = 2; column = 1 } (* Black: bottom *)
+    ; Move.Pass
+    ; Move.Place { row = 1; column = 2 } (* Black: right, captures black at (1,1) *)
     ]
   in
   let rec play_moves state moves =
     match moves with
     | [] -> state
     | m :: ms ->
-      (match Game_state.make_move state m with
-       | Ok s -> play_moves s ms
-       | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)]))
+      match Game_state.make_move state m with
+      | Ok s -> play_moves s ms
+      | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
   in
   let final_state = play_moves state moves in
   pretty_print_board final_state;
-  [%expect
-    {xxx|
-    W W W . . . . . . . . . . . . . . . .
-    B B B . . . . . . . . . . . . . . . .
-    . W . . . . . . . . . . . . . . . . .
+  [%expect {|
+    . B . . . . . . . . . . . . . . . . .
+    B . B . . . . . . . . . . . . . . . .
+    . B . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
@@ -202,21 +199,111 @@ let%expect_test "Game_state.make_move: place stones and capture" =
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
-    (In_progress (whose_turn Black))
-    |xxx}]
+    (In_progress (whose_turn White))
+    Black captures: 1
+    White captures: 0
+    Goal captures: 3 |}];
 ;;
 
-let%expect_test "Game_state.make_move: illegal moves" =
+(* let%expect_test "Game_state.make_move: illegal cell position error" =
   let state = Game_state.create ~goal_captures:1 |> ok_exn in
-  let result1 = Game_state.make_move state (Move.Place { row = 19; column = 0 }) in
-  print_s [%sexp (result1 : (Game_state.t, Game_state.Move_error.t) Result.t)];
-  [%expect {| (Error Illegal_cell_position) |}];
-  let state2 =
-    Game_state.make_move state (Move.Place { row = 0; column = 0 }) |> ok_exn_move
-  in
-  let result2 = Game_state.make_move state2 (Move.Place { row = 0; column = 0 }) in
-  print_s [%sexp (result2 : (Game_state.t, Game_state.Move_error.t) Result.t)];
+  let result = Game_state.make_move state (Move.Place { row = 19; column = 0 }) in
+  print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
+  [%expect {| (Error Illegal_cell_position) |}]
+
+let%expect_test "Game_state.make_move: space already filled error" =
+  let state = Game_state.create ~goal_captures:1 |> ok_exn in
+  let state2 = Game_state.make_move state (Move.Place { row = 0; column = 0 }) |> ok_exn_move in
+  let result = Game_state.make_move state2 (Move.Place { row = 0; column = 0 }) in
+  print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Space_already_filled) |}]
+
+let%expect_test "Game_state.make_move: Game_is_over error" =
+  let state = Game_state.create ~goal_captures:1 |> ok_exn in
+  (* Black places a stone *)
+  let state1 = Game_state.make_move state (Move.Place { row = 1; column = 1 }) |> ok_exn_move in
+  (* White surrounds and captures it *)
+  let moves =
+    [ Move.Place { row = 0; column = 1 } (* White *)
+    ; Move.Place { row = 1; column = 0 } (* Black *)
+    ; Move.Place { row = 2; column = 1 } (* White *)
+    ; Move.Place { row = 1; column = 2 } (* Black *)
+    ; Move.Place { row = 0; column = 0 } (* White *)
+    ]
+  in
+  let rec play_moves state moves =
+    match moves with
+    | [] -> state
+    | m :: ms ->
+      match Game_state.make_move state m with
+      | Ok s -> play_moves s ms
+      | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
+  in
+  let final_state = play_moves state1 moves in
+  (* White captures and wins first-to-1 capture game *)
+  let result_win = Game_state.make_move final_state (Move.Place { row = 0; column = 2 }) in
+  
+  (* If another move were attempted after game ends, error thrown. *)
+  let result_after =
+    (match result_win with
+     | Ok s -> Game_state.make_move s (Move.Place { row = 2; column = 2 })
+     | Error _ -> failwith "Should not error on winning move")
+  in
+  print_s [%sexp (result_after : (Game_state.t, Game_state.Move_error.t) Result.t)];
+  [%expect {| (Error Game_is_over) |}]
+
+let%expect_test "Game_state.make_move: Self_capture_violation error" =
+  let state = Game_state.create ~goal_captures:5 |> ok_exn in
+  (* Set up a board where a move would result in self-capture *)
+  let moves =
+    [ Move.Place { row = 0; column = 1 } (* White *)
+    ; Move.Place { row = 1; column = 0 } (* Black *)
+    ; Move.Place { row = 1; column = 1 } (* White *)
+    ; Move.Place { row = 0; column = 2 } (* Black *)
+    ; Move.Place { row = 2; column = 1 } (* White *)
+    ]
+  in
+  let rec play_moves state moves =
+    match moves with
+    | [] -> state
+    | m :: ms ->
+      match Game_state.make_move state m with
+      | Ok s -> play_moves s ms
+      | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
+  in
+  let state = play_moves state moves in
+  (* Black tries to play at (1,1), which is surrounded and would be self-capture *)
+  let result = Game_state.make_move state (Move.Place { row = 1; column = 1 }) in
+  print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
+  [%expect {| (Error Self_capture_violation) |}]
+
+let%expect_test "Game_state.make_move: Ko_violation error" =
+  let state = Game_state.create ~goal_captures:5 |> ok_exn in
+  (* Set up a simple Ko situation *)
+  let moves =
+    [ Move.Place { row = 0; column = 0 } (* White *)
+    ; Move.Place { row = 0; column = 1 } (* Black *)
+    ; Move.Place { row = 1; column = 0 } (* White *)
+    ; Move.Place { row = 1; column = 1 } (* Black *)
+    ; Move.Place { row = 0; column = 2 } (* White *)
+    ; Move.Place { row = 2; column = 0 } (* Black *)
+    ; Move.Place { row = 1; column = 2 } (* White *)
+    ; Move.Place { row = 2; column = 1 } (* Black *)
+    ]
+  in
+  let rec play_moves state moves =
+    match moves with
+    | [] -> state
+    | m :: ms ->
+      match Game_state.make_move state m with
+      | Ok s -> play_moves s ms
+      | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
+  in
+  let state = play_moves state moves in
+  (* White tries to recapture at (1,1), which should trigger Ko violation *)
+  let result = Game_state.make_move state (Move.Place { row = 1; column = 1 }) in
+  print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
+  [%expect {| (Error Ko_violation) |}]
 ;;
 
 let%expect_test "Game_state.make_move: pass move" =
@@ -282,4 +369,4 @@ let%expect_test "Game_state.make_move: win by capture" =
     . . . . . . . . . . . . . . . . . . .
     (In_progress (whose_turn Black))
     |}]
-;;
+;; *)

@@ -228,13 +228,6 @@ module Game_state = struct
     board_copy, List.length !captured_positions
   ;;
 
-  let check_winner t =
-    match t.black_captures >= t.goal_captures, t.white_captures >= t.goal_captures with
-    | true, _ -> Some Player_kind.Black
-    | false, true -> Some Player_kind.White
-    | false, false -> None
-  ;;
-
   let check_positonal_ko
       (board : Stone.t option array array)
       (previous_states : Board_set.t)
@@ -249,49 +242,55 @@ module Game_state = struct
     | Decision.Winner _ | Decision.Stalemate -> Error Move_error.Game_is_over
     | Decision.In_progress { whose_turn } ->
       let error, new_board = validate_move t whose_turn move in
-      (match error, new_board, move with
-       | Some err, _, _ -> Error err
-       | _, _, Move.Pass ->
-         Ok
-           { t with
-             decision =
-               Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }
-           ; last_move = Some Move.Pass
-           }
-       | _, new_board, Move.Place pos ->
-         let board_after_capture, captured_count =
-           remove_captured_stones new_board whose_turn pos
-         in
-         (* Check self-capture  or KO violation after opponent stones are removed *)
-         let _, has_liberty = get_stone_group board_after_capture pos in
-         if not has_liberty
-         then Error Move_error.Self_capture_violation
-         else if check_positonal_ko board_after_capture t.previous_states
-         then Error Move_error.Ko_violation
-         else (
-           let black_captures, white_captures =
-             match whose_turn with
-             | Player_kind.Black -> t.black_captures + captured_count, t.white_captures
-             | Player_kind.White -> t.black_captures, t.white_captures + captured_count
-           in
-           let new_previous_states =
-             Set.add t.previous_states (Board_state.of_board board_after_capture)
-           in
-           let winner = check_winner t in
-           let decision =
-             match winner with
-             | Some p -> Decision.Winner p
-             | None ->
-               Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }
-           in
-           Ok
-             { t with
-               board = board_after_capture
-             ; previous_states = new_previous_states
-             ; black_captures
-             ; white_captures
-             ; decision
-             ; last_move = Some move
-             }))
+      match error, new_board, move with
+      | Some err, _, _ -> Error err
+      | _, _, Move.Pass ->
+        Ok
+          { t with
+            decision =
+              Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }
+          ; last_move = Some Move.Pass
+          }
+      | _, new_board, Move.Place pos ->
+        let board_after_capture, captured_count =
+          remove_captured_stones new_board whose_turn pos
+        in
+        (* Check self-capture  or KO violation after opponent stones are removed *)
+        let _, has_liberty = get_stone_group board_after_capture pos in
+        if not has_liberty
+        then Error Move_error.Self_capture_violation
+        else if check_positonal_ko board_after_capture t.previous_states
+        then Error Move_error.Ko_violation
+        else (
+          let black_captures, white_captures =
+            match whose_turn with
+            | Player_kind.Black -> t.black_captures + captured_count, t.white_captures
+            | Player_kind.White -> t.black_captures, t.white_captures + captured_count
+          in
+          let new_previous_states =
+            Set.add t.previous_states (Board_state.of_board board_after_capture)
+          in
+          (* Check winner after processing captures *)
+          let winner =
+            match black_captures >= t.goal_captures, white_captures >= t.goal_captures with
+            | true, _ -> Some Player_kind.Black
+            | false, true -> Some Player_kind.White
+            | false, false -> None
+          in
+          let decision =
+            match winner with
+            | Some p -> Decision.Winner p
+            | None ->
+              Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }
+          in
+          Ok
+            { t with
+              board = board_after_capture
+            ; previous_states = new_previous_states
+            ; black_captures
+            ; white_captures
+            ; decision
+            ; last_move = Some move
+            })
   ;;
 end
