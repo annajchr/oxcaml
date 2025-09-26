@@ -2,6 +2,10 @@ open! Core
 open Capturego_logic_library
 open Hw2_capturego_logic
 
+(* Helper function used to apply a list of moves to a game state. 
+
+   Given a list of moves, applies them sequentially to the game state.
+   Does not handle exceptions. *)
 let rec play_moves state moves =
   match moves with
   | [] -> state
@@ -9,6 +13,18 @@ let rec play_moves state moves =
     match Game_state.make_move state m with
     | Ok s -> play_moves s ms
     | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
+
+    (* Helper function used to apply moves when throwing exception is expected. 
+
+       Given a list of moves, attempts to apply them to the game state. Catches
+       and returns error if occurs. *)
+let rec try_moves state moves =
+  match moves with
+  | [] -> Ok state
+  | m :: ms ->
+    match Game_state.make_move state m with
+    | Ok s -> try_moves s ms
+    | Error e -> Error e
 
 let ok_exn result =
   match result with
@@ -187,7 +203,8 @@ let%expect_test "Game_state.make_move: place stones and capture 1 stone" =
 
 let%expect_test "Game_state.make_move: illegal cell position error" =
   let state = Game_state.create ~goal_captures:1 |> ok_exn in
-  let result = Game_state.make_move state (Move.Place { row = 19; column = 0 }) in
+  let moves = [ Move.Place { row = 19; column = 0 } ] in
+  let result = try_moves state moves in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Illegal_cell_position) |}]
 
@@ -197,11 +214,7 @@ let%expect_test "Game_state.make_move: space already filled error" =
   (* Attempts to place stone in 0,0 after it is occupied. *)
   let moves = [ Move.Place { row = 0; column = 0 }; 
                 Move.Place { row = 0; column = 0 } ] in
-  let result =
-    match Game_state.make_move state (List.hd_exn moves) with
-    | Error e -> Error e
-    | Ok s -> Game_state.make_move s (List.nth_exn moves 1)
-  in
+  let result = try_moves state moves in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Space_already_filled) |}]
 
@@ -221,10 +234,8 @@ let%expect_test "Game_state.make_move: Game_is_over error" =
     ]
   in
   let final_state = play_moves state moves in
-
-  (* Try to make a move after the game is over *)
-  let result_after = Game_state.make_move final_state (Move.Place { row = 2; column = 2 }) in
-  print_s [%sexp (result_after : (Game_state.t, Game_state.Move_error.t) Result.t)];
+  let result = try_moves final_state [ Move.Place { row = 2; column = 2 } ] in
+  print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Game_is_over) |}]
 
 let%expect_test "Game_state.make_move: Self_capture_violation error" =
@@ -250,14 +261,6 @@ let%expect_test "Game_state.make_move: Self_capture_violation error" =
     Move.Place { row = 11; column = 11 }
   ] in
 
-  let rec try_moves state moves =
-    match moves with
-    | [] -> Ok state
-    | m :: ms ->
-      match Game_state.make_move state m with
-      | Ok s -> try_moves s ms
-      | Error e -> Error e
-  in
   let result = try_moves state fill_moves in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Self_capture_violation) |}]
@@ -289,14 +292,6 @@ let%expect_test "Game_state.make_move: Ko_violation error" =
     (* Expect Black attempting to re-capture causes KO violation. *)
     ; Move.Place { row = 1; column = 1 } (* Black *)
     ]
-  in
-  let rec try_moves state moves =
-    match moves with
-    | [] -> Ok state
-    | m :: ms ->
-      match Game_state.make_move state m with
-      | Ok s -> try_moves s ms
-      | Error e -> Error e
   in
   let result = try_moves state moves in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
