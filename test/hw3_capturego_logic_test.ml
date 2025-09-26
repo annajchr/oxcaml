@@ -2004,5 +2004,33 @@ let%expect_test "Capture Go random walk till terminal state (goal 1)" =
     Black captures: 1
     White captures: 0
     Goal captures: 1
-    |}]
+    |}];
+  random_walk_capturego ~random_seed:12 ~goal_captures:5;
+  [%expect
+    {|
+    W W B B . B W B B W B B B . B W B W .
+    W . . B B B . B W W . . W B W W B W W
+    W B W B W . B B W B . W W W W W B B B
+    B W B . W B W . W B B B W . B W W B B
+    . W W W B . B . B . W . W W W . W . .
+    W B B B W . B B W . W B W B B B W W W
+    W B B W W W W B B . B B B W B . W . B
+    W W . B W . B W . . W B B W W B B B B
+    . W W B B W W . W B W B . W . . B B W
+    W W . . B B W W W W B . W W W . W . W
+    B . . B W W B B . W B B B B . W W B W
+    B B B W W W . W W B B B B W W W B W .
+    B W B B W W W B W W W B . W B . . W W
+    . W W B . . . B . W B B B B B W W B .
+    . B B B B W W B B B W W W W W B B . B
+    B W . . B B W W W W . B . B . B W B W
+    B B B B . B W . W B B W B W W W W W .
+    W B B B B W W W W B W W W W . W . . W
+    . W . W B B W . B B B W W . . . . . .
+    (Winner White)
+    Black captures: 3
+    White captures: 13
+    Goal captures: 5
+    |}];
 ;;
+
