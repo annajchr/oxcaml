@@ -157,7 +157,7 @@ let%expect_test "Game_state.make_move: successful run to game win" =
   let state = Game_state.create ~goal_captures:3 |> ok_exn in
   (* Full run of first to three capture go game including alternating captures. *)
   let moves = [
-    (* Black captures White's stone at 1,1 *)
+  (* Black captures White's stone at 1,1 *)
   Move.Place { row = 1; column = 1 }; (* White *)
   Move.Place { row = 0; column = 1 }; (* Black *)
   Move.Place { row = 15; column = 15 }; (* White *)
@@ -167,6 +167,7 @@ let%expect_test "Game_state.make_move: successful run to game win" =
   Move.Place { row = 5; column = 5 }; (* White *)
   Move.Place { row = 1; column = 2 }; (* Black *)
 
+  (* White captures Black's stone at (0, 18) *)
   Move.Place { row = 10; column = 10 }; (* White *)
   Move.Place { row = 0; column = 18 }; (* Black *)
   Move.Place { row = 1; column = 18 }; (* White *)
@@ -174,6 +175,8 @@ let%expect_test "Game_state.make_move: successful run to game win" =
   Move.Place { row = 0; column = 17 }; (* White *)
   Move.Place { row = 18; column = 18 }; (* Black *)
 
+  (* Black captures two white stones at (15,15) and (15,16),
+     winning the game. *)
   Move.Place { row = 10; column = 11 }; (* White *)
   Move.Place { row = 14; column = 15 }; (* Black *)
   Move.Place { row = 10; column = 12 }; (* White *)
