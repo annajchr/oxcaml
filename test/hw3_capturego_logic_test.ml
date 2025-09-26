@@ -153,6 +153,68 @@ let%expect_test "Capture Go random walk till terminal state (goal 1)" =
     |}]
 ;;
 
+let%expect_test "Game_state.make_move: successful run to game win" =
+  let state = Game_state.create ~goal_captures:3 |> ok_exn in
+  (* Full run of first to three capture go game including alternating captures. *)
+  let moves = [
+    (* Black captures White's stone at 1,1 *)
+  Move.Place { row = 1; column = 1 }; (* White *)
+  Move.Place { row = 0; column = 1 }; (* Black *)
+  Move.Place { row = 15; column = 15 }; (* White *)
+  Move.Place { row = 1; column = 0 }; (* Black *)
+  Move.Place { row = 15; column = 16 }; (* White *)
+  Move.Place { row = 2; column = 1 }; (* Black *)
+  Move.Place { row = 5; column = 5 }; (* White *)
+  Move.Place { row = 1; column = 2 }; (* Black *)
+
+  Move.Place { row = 10; column = 10 }; (* White *)
+  Move.Place { row = 0; column = 18 }; (* Black *)
+  Move.Place { row = 1; column = 18 }; (* White *)
+  Move.Place { row = 18; column = 0 }; (* Black *)
+  Move.Place { row = 0; column = 17 }; (* White *)
+  Move.Place { row = 18; column = 18 }; (* Black *)
+
+  Move.Place { row = 10; column = 11 }; (* White *)
+  Move.Place { row = 14; column = 15 }; (* Black *)
+  Move.Place { row = 10; column = 12 }; (* White *)
+  Move.Place { row = 16; column = 15 }; (* Black *)
+  Move.Place { row = 10; column = 13 }; (* White *)
+  Move.Place { row = 15; column = 14 }; (* Black *)
+  Move.Place { row = 10; column = 14 }; (* White *)
+  Move.Place { row = 15; column = 17 }; (* Black *)
+  Move.Place { row = 10; column = 15 }; (* White *)
+  Move.Place { row = 16; column = 16 }; (* Black *)
+  Move.Place { row = 10; column = 16 }; (* White *)
+  Move.Place { row = 14; column = 16 }; (* Black *)
+  ] in
+  let final_state = play_moves state moves in
+  pretty_print_board final_state;
+  [%expect {|
+    . B . . . . . . . . . . . . . . . W .
+    B . B . . . . . . . . . . . . . . . W
+    . B . . . . . . . . . . . . . . . . .
+    . . . . . . . . . . . . . . . . . . .
+    . . . . . . . . . . . . . . . . . . .
+    . . . . . W . . . . . . . . . . . . .
+    . . . . . . . . . . . . . . . . . . .
+    . . . . . . . . . . . . . . . . . . .
+    . . . . . . . . . . . . . . . . . . .
+    . . . . . . . . . . . . . . . . . . .
+    . . . . . . . . . . W W W W W W W . .
+    . . . . . . . . . . . . . . . . . . .
+    . . . . . . . . . . . . . . . . . . .
+    . . . . . . . . . . . . . . . . . . .
+    . . . . . . . . . . . . . . . B B . .
+    . . . . . . . . . . . . . . B . . B .
+    . . . . . . . . . . . . . . . B B . .
+    . . . . . . . . . . . . . . . . . . .
+    B . . . . . . . . . . . . . . . . . B
+    (Winner Black)
+    Black captures: 3
+    White captures: 1
+    Goal captures: 3 |}];
+;;
+
 let%expect_test "Game_state.make_move: place stones and capture 1 stone" =
   let state = Game_state.create ~goal_captures:3 |> ok_exn in
   let moves =
@@ -307,62 +369,4 @@ let%expect_test "Game_state.make_move: Ko_violation error" =
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Ko_violation) |}]
 ;;
-
-
-let%expect_test "Game_state.make_move: win by capture" =
-  let state = Game_state.create ~goal_captures:1 |> ok_exn in
-  let moves =
-    [ Move.Place { row = 0; column = 0 }
-    ; (* White *)
-      Move.Place { row = 1; column = 0 }
-    ; (* Black *)
-      Move.Place { row = 0; column = 1 }
-    ; (* White *)
-      Move.Place { row = 1; column = 1 }
-    ; (* Black *)
-      Move.Place { row = 0; column = 2 }
-    ; (* White *)
-      Move.Place { row = 1; column = 2 }
-    ; (* Black *)
-      Move.Place { row = 2; column = 1 }
-    ; (* White, should capture black at (1,1) *)
-      Move.Place { row = 2; column = 0 }
-    ; (* Black *)
-      Move.Place { row = 2; column = 2 }
-      (* White, should capture black at (1,2) and win *)
-    ]
-  in
-  let rec play_moves state moves =
-    match moves with
-    | [] -> state
-    | m :: ms ->
-      (match Game_state.make_move state m with
-       | Ok s -> play_moves s ms
-       | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)]))
-  in
-  let final_state = play_moves state moves in
-  pretty_print_board final_state;
-  [%expect
-    {|
-    W W W . . . . . . . . . . . . . . . .
-    B B B . . . . . . . . . . . . . . . .
-    B W W . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    . . . . . . . . . . . . . . . . . . .
-    (In_progress (whose_turn Black))
-    |}]
-;; *)
+*)
