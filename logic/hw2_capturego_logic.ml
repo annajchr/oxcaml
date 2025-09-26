@@ -228,7 +228,7 @@ module Game_state = struct
     board_copy, List.length !captured_positions
   ;;
 
-  let check_positonal_ko
+  let is_positional_ko_violation
       (board : Stone.t option array array)
       (previous_states : Board_set.t)
       : bool
@@ -259,7 +259,7 @@ module Game_state = struct
         let _, has_liberty = get_stone_group board_after_capture pos in
         if not has_liberty
         then Error Move_error.Self_capture_violation
-        else if check_positonal_ko board_after_capture t.previous_states
+        else if is_positional_ko_violation board_after_capture t.previous_states
         then Error Move_error.Ko_violation
         else (
           let black_captures, white_captures =
