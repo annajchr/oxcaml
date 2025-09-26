@@ -84,7 +84,7 @@ module Game_state : sig
   This function implements the Positional Super-KO rule, which states that a player may not make a move that would result
   in any previous board position.
   *)
-  val check_positonal_ko : Stone.t option array array -> Board_set.t -> bool
+  val is_positional_ko_violation : Stone.t option array array -> Board_set.t -> bool
 
   (* Validates the move against the possible Move errors. Returns an error if a move error is detected,
     otherwise returns the updated board with the current move stone on the board. *)
