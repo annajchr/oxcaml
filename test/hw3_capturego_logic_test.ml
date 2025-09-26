@@ -1933,8 +1933,8 @@ let%expect_test "Game_state.make_move: Ko_violation error" =
     Goal captures: 5
     (Error Ko_violation) |}]
 ;;
-let random_walk_capturego ~random_seed =
-  let initial_state = Game_state.create ~goal_captures:1 |> ok_exn in
+let random_walk_capturego ~random_seed ~goal_captures =
+  let initial_state = Game_state.create ~goal_captures: goal_captures |> ok_exn in
   let rec walk state =
     let all_moves = Game_state.get_all_moves state in
     let next_states =
@@ -1951,7 +1951,7 @@ let random_walk_capturego ~random_seed =
 ;;
 
 let%expect_test "Capture Go random walk till terminal state (goal 1)" =
-  random_walk_capturego ~random_seed:42;
+  random_walk_capturego ~random_seed:42 ~goal_captures:1;
   [%expect
     {|
     . W W . . W W W B . . W W B . B . . W
@@ -1978,7 +1978,7 @@ let%expect_test "Capture Go random walk till terminal state (goal 1)" =
     White captures: 0
     Goal captures: 1
     |}];
-  random_walk_capturego ~random_seed:7;
+  random_walk_capturego ~random_seed:7 ~goal_captures:1;
   [%expect
     {|
     B B . W B B . . W . . W . B . B W . .
