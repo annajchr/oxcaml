@@ -236,32 +236,41 @@ let%expect_test "Game_state.make_move: Game_is_over error" =
   print_s [%sexp (result_after : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Game_is_over) |}]
 
-  (* 
 let%expect_test "Game_state.make_move: Self_capture_violation error" =
   let state = Game_state.create ~goal_captures:5 |> ok_exn in
-  (* Set up a board where a move would result in self-capture *)
-  let moves =
-    [ Move.Place { row = 0; column = 1 } (* White *)
-    ; Move.Place { row = 1; column = 0 } (* Black *)
-    ; Move.Place { row = 1; column = 1 } (* White *)
-    ; Move.Place { row = 0; column = 2 } (* Black *)
-    ; Move.Place { row = 2; column = 1 } (* White *)
-    ]
-  in
-  let rec play_moves state moves =
+  (* White creates a perimeter around a 2x2 square. *)
+  let perimeter_moves = [
+    Move.Place { row = 9; column = 10 }; Move.Pass;
+    Move.Place { row = 9; column = 11 }; Move.Pass;
+    Move.Place { row = 10; column = 9 }; Move.Pass;
+    Move.Place { row = 11; column = 9 }; Move.Pass;
+    Move.Place { row = 12; column = 10 }; Move.Pass;
+    Move.Place { row = 12; column = 11 }; Move.Pass;
+    Move.Place { row = 10; column = 12 }; Move.Pass;
+    Move.Place { row = 11; column = 12 };
+  ] in
+  let state = play_moves state perimeter_moves in
+
+  (* Black attempts to fill in the 2x2 square, which we expect triggers a self-capture error. *)
+  let fill_moves = [
+    Move.Place { row = 10; column = 10 }; Move.Pass;
+    Move.Place { row = 10; column = 11 }; Move.Pass;
+    Move.Place { row = 11; column = 10 }; Move.Pass;
+    Move.Place { row = 11; column = 11 }
+  ] in
+
+  let rec try_moves state moves =
     match moves with
-    | [] -> state
+    | [] -> Ok state
     | m :: ms ->
       match Game_state.make_move state m with
-      | Ok s -> play_moves s ms
-      | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
+      | Ok s -> try_moves s ms
+      | Error e -> Error e
   in
-  let state = play_moves state moves in
-  (* Black tries to play at (1,1), which is surrounded and would be self-capture *)
-  let result = Game_state.make_move state (Move.Place { row = 1; column = 1 }) in
+  let result = try_moves state fill_moves in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Self_capture_violation) |}]
-
+(* 
 let%expect_test "Game_state.make_move: Ko_violation error" =
   let state = Game_state.create ~goal_captures:5 |> ok_exn in
   (* Set up a simple Ko situation *)
