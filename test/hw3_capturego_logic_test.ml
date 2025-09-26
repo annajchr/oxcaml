@@ -79,80 +79,6 @@ let pretty_print_board (state : Game_state.t) =
   Stdio.printf "Goal captures: %d\n" state.goal_captures;
 ;;
 
-let random_walk_capturego ~random_seed =
-  let initial_state = Game_state.create ~goal_captures:1 |> ok_exn in
-  let rec walk state =
-    let all_moves = Game_state.get_all_moves state in
-    let next_states =
-      List.filter_map all_moves ~f:(fun move ->
-        Game_state.make_move state move |> Result.ok)
-    in
-    let random_state = List.random_element next_states |> Option.value_exn in
-    if Decision.is_game_over random_state.decision
-    then random_state
-    else walk random_state
-  in
-  Core.Random.init random_seed;
-  pretty_print_board (walk initial_state)
-;;
-
-let%expect_test "Capture Go random walk till terminal state (goal 1)" =
-  random_walk_capturego ~random_seed:42;
-  [%expect
-    {|
-    . W W . . W W W B . . W W B . B . . W
-    . . . . W B . W . W B B B . . W W . B
-    W . . . W W B W W . B B W . . B B W .
-    B B W W . W W . . W B . W W . . W W B
-    W . . . B B W . . . . . . W B . W . .
-    . . . . B W W . . . W . . . W . W B W
-    . W W B W W W . B B . . . W W . . . .
-    . B . . W W B B W . . . B . W W . . W
-    . . . W B B W W B B . . . . . . . . B
-    B W . B . . . B B . B . . B W B B . .
-    . B B . B . W B . . B . . W W . B B .
-    W . . B B . . . W W W B B B B . B . .
-    . W B B W W W B . B W B W . . B . B B
-    W B . W W . W . . W W W B B . . B B B
-    B W . . W . W W . . . W . W . B B B B
-    . W . B B . B B . . . . . . B . W B .
-    . B B . W B . . W B . W W . . . . . B
-    . W . . . B B W . B . B B . B . W . .
-    B . W . B . B . . B B W . W . B W . W
-    (Winner Black)
-    Black captures: 1
-    White captures: 0
-    Goal captures: 1
-    |}];
-  random_walk_capturego ~random_seed:7;
-  [%expect
-    {|
-    B B . W B B . . W . . W . B . B W . .
-    W . . . W . . . B W W . W . W B W W W
-    . . B B W B . W . B B B . . . W B W .
-    . B B . . . . . W . B B . . . B . . .
-    B . . W W . W . W . . B . . W W . . W
-    W W W W W . W . . W B . W B W . . B B
-    . W . W W B W B . . B B W . . . . W B
-    . B B W . B . W W . . . W B . W . . B
-    . . W B B W B . W . B B . W W B B . .
-    W W B . . W W . W . B B W B . . . . W
-    . . B . W W . B . B B B W B . . B W .
-    W . W W . W B B W . W W . B W W B B B
-    . . . B W B . W . . . B W . W . B . .
-    B B . B W B . . B . . . B . B . . W .
-    . B W . . . W . B . . B . . W W B W B
-    W . W . B . . B . B . B . . B . . B B
-    B . . . W B . . B B B B . B W B B . .
-    B B . W . W . . . W . W . . . . . B W
-    W . W W . . W . B . W . B . W . . . B
-    (Winner Black)
-    Black captures: 1
-    White captures: 0
-    Goal captures: 1
-    |}]
-;;
-
 let%expect_test "Game_state.make_move: successful run to game win" =
   let state = Game_state.create ~goal_captures:3 |> ok_exn in
   (* Full run of first to three capture go game including alternating captures. *)
@@ -375,4 +301,77 @@ let%expect_test "Game_state.make_move: Ko_violation error" =
   let result = try_moves state moves in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Ko_violation) |}]
+;;
+let random_walk_capturego ~random_seed =
+  let initial_state = Game_state.create ~goal_captures:1 |> ok_exn in
+  let rec walk state =
+    let all_moves = Game_state.get_all_moves state in
+    let next_states =
+      List.filter_map all_moves ~f:(fun move ->
+        Game_state.make_move state move |> Result.ok)
+    in
+    let random_state = List.random_element next_states |> Option.value_exn in
+    if Decision.is_game_over random_state.decision
+    then random_state
+    else walk random_state
+  in
+  Core.Random.init random_seed;
+  pretty_print_board (walk initial_state)
+;;
+
+let%expect_test "Capture Go random walk till terminal state (goal 1)" =
+  random_walk_capturego ~random_seed:42;
+  [%expect
+    {|
+    . W W . . W W W B . . W W B . B . . W
+    . . . . W B . W . W B B B . . W W . B
+    W . . . W W B W W . B B W . . B B W .
+    B B W W . W W . . W B . W W . . W W B
+    W . . . B B W . . . . . . W B . W . .
+    . . . . B W W . . . W . . . W . W B W
+    . W W B W W W . B B . . . W W . . . .
+    . B . . W W B B W . . . B . W W . . W
+    . . . W B B W W B B . . . . . . . . B
+    B W . B . . . B B . B . . B W B B . .
+    . B B . B . W B . . B . . W W . B B .
+    W . . B B . . . W W W B B B B . B . .
+    . W B B W W W B . B W B W . . B . B B
+    W B . W W . W . . W W W B B . . B B B
+    B W . . W . W W . . . W . W . B B B B
+    . W . B B . B B . . . . . . B . W B .
+    . B B . W B . . W B . W W . . . . . B
+    . W . . . B B W . B . B B . B . W . .
+    B . W . B . B . . B B W . W . B W . W
+    (Winner Black)
+    Black captures: 1
+    White captures: 0
+    Goal captures: 1
+    |}];
+  random_walk_capturego ~random_seed:7;
+  [%expect
+    {|
+    B B . W B B . . W . . W . B . B W . .
+    W . . . W . . . B W W . W . W B W W W
+    . . B B W B . W . B B B . . . W B W .
+    . B B . . . . . W . B B . . . B . . .
+    B . . W W . W . W . . B . . W W . . W
+    W W W W W . W . . W B . W B W . . B B
+    . W . W W B W B . . B B W . . . . W B
+    . B B W . B . W W . . . W B . W . . B
+    . . W B B W B . W . B B . W W B B . .
+    W W B . . W W . W . B B W B . . . . W
+    . . B . W W . B . B B B W B . . B W .
+    W . W W . W B B W . W W . B W W B B B
+    . . . B W B . W . . . B W . W . B . .
+    B B . B W B . . B . . . B . B . . W .
+    . B W . . . W . B . . B . . W W B W B
+    W . W . B . . B . B . B . . B . . B B
+    B . . . W B . . B B B B . B W B B . .
+    B B . W . W . . . W . W . . . . . B W
+    W . W W . . W . B . W . B . W . . . B
+    (Winner Black)
+    Black captures: 1
+    White captures: 0
+    Goal captures: 1
+    |}]
 ;;
