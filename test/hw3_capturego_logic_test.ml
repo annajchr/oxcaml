@@ -270,6 +270,14 @@ let%expect_test "Game_state.make_move: Self_capture_violation error" =
   let result = try_moves state fill_moves in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Self_capture_violation) |}]
+
+let%expect_test "Game_state.make_move: pass move" =
+  let state = Game_state.create ~goal_captures:1 |> ok_exn in
+  let stateAfterPass = Game_state.make_move state Move.Pass |> ok_exn_move in
+  print_s [%sexp (stateAfterPass.decision : Decision.t)];
+  [%expect {| (In_progress (whose_turn Black)) |}]
+;;
+
 (* 
 let%expect_test "Game_state.make_move: Ko_violation error" =
   let state = Game_state.create ~goal_captures:5 |> ok_exn in
@@ -300,12 +308,6 @@ let%expect_test "Game_state.make_move: Ko_violation error" =
   [%expect {| (Error Ko_violation) |}]
 ;;
 
-let%expect_test "Game_state.make_move: pass move" =
-  let state = Game_state.create ~goal_captures:1 |> ok_exn in
-  let state2 = Game_state.make_move state Move.Pass |> ok_exn_move in
-  print_s [%sexp (state2.decision : Decision.t)];
-  [%expect {| (In_progress (whose_turn Black)) |}]
-;;
 
 let%expect_test "Game_state.make_move: win by capture" =
   let state = Game_state.create ~goal_captures:1 |> ok_exn in
