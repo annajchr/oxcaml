@@ -1,105 +1,88 @@
-(* open! Core
-open Hw2_tictactoe_logic
 
-let heuristic_value (node : Game_state.t) =
-  match node.decision with
-  | Stalemate -> 0
-  | In_progress _ ->
-    (* For more complex games, like Gomoku/connect6, we should have here a heuristic
-       function that scores how good this state for player X, i.e., the higher the number
-       the better it is for X. *)
-    0
-  | Winner player_kind ->
+open! Core
+open Hw2_capturego_logic
+
+let max_score = Int.max_value
+let min_score = Int.min_value
+
+(* Heuristic: difference in captures, positive for Black, negative for White *)
+let heuristic_value (game_state : Game_state.t) : int =
+  match game_state.decision with
+  | Decision.Stalemate -> 0
+  | Decision.In_progress _ -> game_state.black_captures - game_state.white_captures
+  | Decision.Winner player_kind ->
     (match player_kind with
-     | X -> Int.max_value
-     | O -> Int.min_value)
+     | Player_kind.Black -> max_score
+     | Player_kind.White -> min_score)
 ;;
 
-let children node ~(sort_by_whose_turn : Player_kind.t) =
+(* Generate and sort child states by heuristic value *)
+let children (game_state : Game_state.t) ~(sort_by_whose_turn : Player_kind.t) : Game_state.t list =
   let compare =
     match sort_by_whose_turn with
-    | X -> Int.descending
-    | O -> Int.ascending
+    | Player_kind.Black -> Int.descending
+    | Player_kind.White -> Int.ascending
   in
-  let moves = Game_state.get_all_moves node in
-  List.filter_map moves ~f:(fun move -> Game_state.make_move node move |> Result.ok)
-  (* Sorting the children by heuristic values gives the best alpha-beta pruning. *)
+  let moves = Game_state.get_all_moves game_state in
+  List.filter_map moves ~f:(fun move -> Game_state.make_move game_state move |> Result.ok)
   |> List.sort ~compare:(Comparable.lift ~f:heuristic_value compare)
 ;;
 
-(*=
-https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning
-
-function alpha_beta(node, depth, α, β, maximizing_player) is
-    if depth == 0 or node is terminal then
-        return the heuristic value of node
-    if maximizing_player then
-        value := −∞
-        for each child of node do
-            value := max(value, alpha_beta(child, depth − 1, α, β, FALSE))
-            if value ≥ β then
-                break (* β cutoff *)
-            α := max(α, value)
-        return value
-    else
-        value := +∞
-        for each child of node do
-            value := min(value, alpha_beta(child, depth − 1, α, β, TRUE))
-            if value ≤ α then
-                break (* α cutoff *)
-            β := min(β, value)
-        return value
-
-
-alphabeta(origin, depth, −∞, +∞, TRUE)
-*)
-let rec alpha_beta (node : Game_state.t) depth alpha beta =
-  match node.decision with
-  | In_progress { whose_turn } when depth > 0 ->
+(* Alpha-beta pruning search *)
+let rec alpha_beta
+    (game_state : Game_state.t)
+    (depth : int)
+    (alpha : int)
+    (beta : int)
+  : int =
+  match game_state.decision with
+  | Decision.In_progress { whose_turn } when depth > 0 ->
+    let child_states = children game_state ~sort_by_whose_turn:whose_turn in
     (match whose_turn with
-     | X ->
+     | Player_kind.Black ->
        List.fold_until
-         (children node ~sort_by_whose_turn:whose_turn)
-         ~init:(Int.min_value, alpha)
+         child_states
+         ~init:(min_score, alpha)
          ~finish:(fun (value, _alpha) -> value)
          ~f:(fun (value, alpha) child ->
-           let value = Int.max value (alpha_beta child (depth - 1) alpha beta) in
+           let child_value = alpha_beta child (depth - 1) alpha beta in
+           let value = Int.max value child_value in
            let alpha = Int.max alpha value in
            if value >= beta then Stop value else Continue (value, alpha))
-     | O ->
+     | Player_kind.White ->
        List.fold_until
-         (children node ~sort_by_whose_turn:whose_turn)
-         ~init:(Int.max_value, beta)
+         child_states
+         ~init:(max_score, beta)
          ~finish:(fun (value, _beta) -> value)
          ~f:(fun (value, beta) child ->
-           let value = Int.min value (alpha_beta child (depth - 1) alpha beta) in
+           let child_value = alpha_beta child (depth - 1) alpha beta in
+           let value = Int.min value child_value in
            let beta = Int.min beta value in
            if value <= alpha then Stop value else Continue (value, beta)))
-  | _ -> heuristic_value node
+  | _ -> heuristic_value game_state
 ;;
 
-let alpha_beta (node : Game_state.t) ~depth =
-  match node.decision with
-  | Winner _ | Stalemate -> None
-  | In_progress { whose_turn } ->
-    let moves = Game_state.get_all_moves node in
+(* Find the best move for the current player using alpha-beta search *)
+let best_move (game_state : Game_state.t) ~(depth : int) : Move.t option =
+  match game_state.decision with
+  | Decision.Winner _ | Decision.Stalemate -> None
+  | Decision.In_progress { whose_turn } ->
+    let moves = Game_state.get_all_moves game_state in
     let moves_and_children =
       List.filter_map moves ~f:(fun move ->
-        Game_state.make_move node move
+        Game_state.make_move game_state move
         |> Result.ok
         |> Option.map ~f:(fun child -> move, child))
     in
-    let moves_and_children_and_values =
+    let moves_and_values =
       List.map moves_and_children ~f:(fun (move, child) ->
-        move, child, alpha_beta child (depth - 1) Int.min_value Int.max_value)
+        let value = alpha_beta child (depth - 1) min_score max_score in
+        (move, value))
     in
-    let best_move =
-      (match whose_turn with
-       | X -> List.max_elt
-       | O -> List.min_elt)
-        moves_and_children_and_values
-        ~compare:(fun (_move, _child, v1) (_move, _child, v2) -> Int.compare v1 v2)
-      |> Option.map ~f:(fun (move, _child, _value) -> move)
+    let best =
+      match whose_turn with
+      | Player_kind.Black -> List.max_elt moves_and_values ~compare:(fun (_, v1) (_, v2) -> Int.compare v1 v2)
+      | Player_kind.White -> List.min_elt moves_and_values ~compare:(fun (_, v1) (_, v2) -> Int.compare v1 v2)
     in
-    best_move
-;; *)
+    Option.map best ~f:fst
+;;

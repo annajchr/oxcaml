@@ -19,7 +19,7 @@ let pretty_print_board (state : Game_state.t) =
   print_s [%sexp (state.decision : Decision.t)];
   Stdio.printf "Black captures: %d\n" state.black_captures;
   Stdio.printf "White captures: %d\n" state.white_captures;
-  Stdio.printf "Goal captures: %d\n" state.goal_captures;
+  Stdio.printf "Goal captures: %d\n" state.goal_captures
 ;;
 
 (* Helper function used to apply a list of moves to a game state. 
@@ -30,11 +30,14 @@ let rec play_moves state moves =
   match moves with
   | [] -> state
   | m :: ms ->
-    match Game_state.make_move state m with
-    | Ok s -> pretty_print_board s; play_moves s ms
-    | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
+    (match Game_state.make_move state m with
+     | Ok s ->
+       pretty_print_board s;
+       play_moves s ms
+     | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)]))
+;;
 
-    (* Helper function used to apply moves when throwing exception is expected. 
+(* Helper function used to apply moves when throwing exception is expected. 
 
        Given a list of moves, attempts to apply them to the game state. Catches
        and returns error if occurs. *)
@@ -42,9 +45,12 @@ let rec try_moves state moves =
   match moves with
   | [] -> Ok state
   | m :: ms ->
-    match Game_state.make_move state m with
-    | Ok s -> pretty_print_board s; try_moves s ms
-    | Error e -> Error e
+    (match Game_state.make_move state m with
+     | Ok s ->
+       pretty_print_board s;
+       try_moves s ms
+     | Error e -> Error e)
+;;
 
 let ok_exn result =
   match result with
@@ -95,46 +101,72 @@ let%expect_test "Game_state.create: valid and invalid goal_captures" =
   [%expect {| (Error (Goal_captures_less_than_one)) |}]
 ;;
 
-
 let%expect_test "Game_state.make_move: successful run to game win" =
   let state = Game_state.create ~goal_captures:3 |> ok_exn in
   (* Full run of first to three capture go game including alternating captures. *)
-  let moves = [
-  (* Black captures White's stone at 1,1 *)
-  Move.Place { row = 1; column = 1 }; (* White *)
-  Move.Place { row = 0; column = 1 }; (* Black *)
-  Move.Place { row = 15; column = 15 }; (* White *)
-  Move.Place { row = 1; column = 0 }; (* Black *)
-  Move.Place { row = 15; column = 16 }; (* White *)
-  Move.Place { row = 2; column = 1 }; (* Black *)
-  Move.Place { row = 5; column = 5 }; (* White *)
-  Move.Place { row = 1; column = 2 }; (* Black *)
+  let moves =
+    [ (* Black captures White's stone at 1,1 *)
+      Move.Place { row = 1; column = 1 }
+    ; (* White *)
+      Move.Place { row = 0; column = 1 }
+    ; (* Black *)
+      Move.Place { row = 15; column = 15 }
+    ; (* White *)
+      Move.Place { row = 1; column = 0 }
+    ; (* Black *)
+      Move.Place { row = 15; column = 16 }
+    ; (* White *)
+      Move.Place { row = 2; column = 1 }
+    ; (* Black *)
+      Move.Place { row = 5; column = 5 }
+    ; (* White *)
+      Move.Place { row = 1; column = 2 }
+    ; (* Black *)
 
-  (* White captures Black's stone at (0, 18) *)
-  Move.Place { row = 10; column = 10 }; (* White *)
-  Move.Place { row = 0; column = 18 }; (* Black *)
-  Move.Place { row = 1; column = 18 }; (* White *)
-  Move.Place { row = 18; column = 0 }; (* Black *)
-  Move.Place { row = 0; column = 17 }; (* White *)
-  Move.Place { row = 18; column = 18 }; (* Black *)
+      (* White captures Black's stone at (0, 18) *)
+      Move.Place { row = 10; column = 10 }
+    ; (* White *)
+      Move.Place { row = 0; column = 18 }
+    ; (* Black *)
+      Move.Place { row = 1; column = 18 }
+    ; (* White *)
+      Move.Place { row = 18; column = 0 }
+    ; (* Black *)
+      Move.Place { row = 0; column = 17 }
+    ; (* White *)
+      Move.Place { row = 18; column = 18 }
+    ; (* Black *)
 
-  (* Black captures two white stones at (15,15) and (15,16),
+      (* Black captures two white stones at (15,15) and (15,16),
      winning the game. *)
-  Move.Place { row = 10; column = 11 }; (* White *)
-  Move.Place { row = 14; column = 15 }; (* Black *)
-  Move.Place { row = 10; column = 12 }; (* White *)
-  Move.Place { row = 16; column = 15 }; (* Black *)
-  Move.Place { row = 10; column = 13 }; (* White *)
-  Move.Place { row = 15; column = 14 }; (* Black *)
-  Move.Place { row = 10; column = 14 }; (* White *)
-  Move.Place { row = 15; column = 17 }; (* Black *)
-  Move.Place { row = 10; column = 15 }; (* White *)
-  Move.Place { row = 16; column = 16 }; (* Black *)
-  Move.Place { row = 10; column = 16 }; (* White *)
-  Move.Place { row = 14; column = 16 }; (* Black *)
-  ] in
+      Move.Place { row = 10; column = 11 }
+    ; (* White *)
+      Move.Place { row = 14; column = 15 }
+    ; (* Black *)
+      Move.Place { row = 10; column = 12 }
+    ; (* White *)
+      Move.Place { row = 16; column = 15 }
+    ; (* Black *)
+      Move.Place { row = 10; column = 13 }
+    ; (* White *)
+      Move.Place { row = 15; column = 14 }
+    ; (* Black *)
+      Move.Place { row = 10; column = 14 }
+    ; (* White *)
+      Move.Place { row = 15; column = 17 }
+    ; (* Black *)
+      Move.Place { row = 10; column = 15 }
+    ; (* White *)
+      Move.Place { row = 16; column = 16 }
+    ; (* Black *)
+      Move.Place { row = 10; column = 16 }
+    ; (* White *)
+      Move.Place { row = 14; column = 16 } (* Black *)
+    ]
+  in
   let _final_state = play_moves state moves in
-  [%expect {|
+  [%expect
+    {|
     . . . . . . . . . . . . . . . . . . .
     . W . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
@@ -732,7 +764,7 @@ let%expect_test "Game_state.make_move: successful run to game win" =
     (Winner Black)
     Black captures: 3
     White captures: 1
-    Goal captures: 3 |}];
+    Goal captures: 3 |}]
 ;;
 
 let%expect_test "Game_state.make_move: place stones and capture 1 stone" =
@@ -742,14 +774,15 @@ let%expect_test "Game_state.make_move: place stones and capture 1 stone" =
     ; Move.Place { row = 0; column = 1 } (* Black: top *)
     ; Move.Pass (* White: passes every move to allow capture *)
     ; Move.Place { row = 1; column = 0 } (* Black: left *)
-    ; Move.Pass 
+    ; Move.Pass
     ; Move.Place { row = 2; column = 1 } (* Black: bottom *)
     ; Move.Pass
     ; Move.Place { row = 1; column = 2 } (* Black: right, captures white stone at (1,1) *)
     ]
   in
   let _final_state = play_moves state moves in
-  [%expect {|
+  [%expect
+    {|
     . . . . . . . . . . . . . . . . . . .
     . W . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
@@ -933,7 +966,7 @@ let%expect_test "Game_state.make_move: place stones and capture 1 stone" =
     (In_progress (whose_turn White))
     Black captures: 1
     White captures: 0
-    Goal captures: 3 |}];
+    Goal captures: 3 |}]
 ;;
 
 let%expect_test "Game_state.make_move: illegal cell position error" =
@@ -942,16 +975,18 @@ let%expect_test "Game_state.make_move: illegal cell position error" =
   let result = try_moves state moves in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
   [%expect {| (Error Illegal_cell_position) |}]
+;;
 
 let%expect_test "Game_state.make_move: space already filled error" =
   let state = Game_state.create ~goal_captures:1 |> ok_exn in
-
   (* Attempts to place stone in 0,0 after it is occupied. *)
-  let moves = [ Move.Place { row = 0; column = 0 }; 
-                Move.Place { row = 0; column = 0 } ] in
+  let moves =
+    [ Move.Place { row = 0; column = 0 }; Move.Place { row = 0; column = 0 } ]
+  in
   let result = try_moves state moves in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
-  [%expect {|
+  [%expect
+    {|
     W . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
@@ -976,17 +1011,17 @@ let%expect_test "Game_state.make_move: space already filled error" =
     White captures: 0
     Goal captures: 1
     (Error Space_already_filled) |}]
+;;
 
 let%expect_test "Game_state.make_move: Game_is_over error" =
   let state = Game_state.create ~goal_captures:1 |> ok_exn in
-
   (* Same moves as 1 stone capture test case *)
   let moves =
     [ Move.Place { row = 1; column = 1 }
     ; Move.Place { row = 0; column = 1 }
     ; Move.Pass
     ; Move.Place { row = 1; column = 0 }
-    ; Move.Pass 
+    ; Move.Pass
     ; Move.Place { row = 2; column = 1 }
     ; Move.Pass
     ; Move.Place { row = 1; column = 2 } (* Black: captures white stone at (1,1) *)
@@ -995,7 +1030,8 @@ let%expect_test "Game_state.make_move: Game_is_over error" =
   let final_state = play_moves state moves in
   let result = try_moves final_state [ Move.Place { row = 2; column = 2 } ] in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
-  [%expect {|
+  [%expect
+    {|
     . . . . . . . . . . . . . . . . . . .
     . W . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
@@ -1181,33 +1217,45 @@ let%expect_test "Game_state.make_move: Game_is_over error" =
     White captures: 0
     Goal captures: 1
     (Error Game_is_over) |}]
+;;
 
 let%expect_test "Game_state.make_move: Self_capture_violation error" =
   let state = Game_state.create ~goal_captures:5 |> ok_exn in
   (* White creates a perimeter around a 2x2 square. *)
-  let perimeter_moves = [
-    Move.Place { row = 9; column = 10 }; Move.Pass;
-    Move.Place { row = 9; column = 11 }; Move.Pass;
-    Move.Place { row = 10; column = 9 }; Move.Pass;
-    Move.Place { row = 11; column = 9 }; Move.Pass;
-    Move.Place { row = 12; column = 10 }; Move.Pass;
-    Move.Place { row = 12; column = 11 }; Move.Pass;
-    Move.Place { row = 10; column = 12 }; Move.Pass;
-    Move.Place { row = 11; column = 12 };
-  ] in
+  let perimeter_moves =
+    [ Move.Place { row = 9; column = 10 }
+    ; Move.Pass
+    ; Move.Place { row = 9; column = 11 }
+    ; Move.Pass
+    ; Move.Place { row = 10; column = 9 }
+    ; Move.Pass
+    ; Move.Place { row = 11; column = 9 }
+    ; Move.Pass
+    ; Move.Place { row = 12; column = 10 }
+    ; Move.Pass
+    ; Move.Place { row = 12; column = 11 }
+    ; Move.Pass
+    ; Move.Place { row = 10; column = 12 }
+    ; Move.Pass
+    ; Move.Place { row = 11; column = 12 }
+    ]
+  in
   let state = play_moves state perimeter_moves in
-
   (* Black attempts to fill in the 2x2 square, which we expect triggers a self-capture error. *)
-  let fill_moves = [
-    Move.Place { row = 10; column = 10 }; Move.Pass;
-    Move.Place { row = 10; column = 11 }; Move.Pass;
-    Move.Place { row = 11; column = 10 }; Move.Pass;
-    Move.Place { row = 11; column = 11 }
-  ] in
-
+  let fill_moves =
+    [ Move.Place { row = 10; column = 10 }
+    ; Move.Pass
+    ; Move.Place { row = 10; column = 11 }
+    ; Move.Pass
+    ; Move.Place { row = 11; column = 10 }
+    ; Move.Pass
+    ; Move.Place { row = 11; column = 11 }
+    ]
+  in
   let result = try_moves state fill_moves in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
-  [%expect {|
+  [%expect
+    {|
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
@@ -1692,6 +1740,7 @@ let%expect_test "Game_state.make_move: Self_capture_violation error" =
     White captures: 0
     Goal captures: 5
     (Error Self_capture_violation) |}]
+;;
 
 let%expect_test "Game_state.make_move: pass move" =
   let state = Game_state.create ~goal_captures:1 |> ok_exn in
@@ -1699,7 +1748,6 @@ let%expect_test "Game_state.make_move: pass move" =
   print_s [%sexp (stateAfterPass.decision : Decision.t)];
   [%expect {| (In_progress (whose_turn Black)) |}]
 ;;
-
 
 let%expect_test "Game_state.make_move: Ko_violation error" =
   let state = Game_state.create ~goal_captures:5 |> ok_exn in
@@ -1712,18 +1760,21 @@ let%expect_test "Game_state.make_move: Ko_violation error" =
     ; Move.Place { row = 1; column = 2 } (* White *)
     ; Move.Place { row = 2; column = 2 } (* Black *)
     ; Move.Place { row = 0; column = 3 } (* White *)
-    ; Move.Place { row = 3; column = 1 } (* Black *)
+    ; Move.Place { row = 3; column = 1 }
+      (* Black *)
 
-    (*  White capture Black's stone at (1,1) *)
-    ; Move.Place { row = 2; column = 1 } (* White *)
+      (*  White capture Black's stone at (1,1) *)
+    ; Move.Place { row = 2; column = 1 }
+      (* White *)
 
-    (* Expect Black attempting to re-capture causes KO violation. *)
+      (* Expect Black attempting to re-capture causes KO violation. *)
     ; Move.Place { row = 1; column = 1 } (* Black *)
     ]
   in
   let result = try_moves state moves in
   print_s [%sexp (result : (Game_state.t, Game_state.Move_error.t) Result.t)];
-  [%expect {|
+  [%expect
+    {|
     . W . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
@@ -1933,8 +1984,9 @@ let%expect_test "Game_state.make_move: Ko_violation error" =
     Goal captures: 5
     (Error Ko_violation) |}]
 ;;
+
 let random_walk_capturego ~random_seed ~goal_captures =
-  let initial_state = Game_state.create ~goal_captures: goal_captures |> ok_exn in
+  let initial_state = Game_state.create ~goal_captures |> ok_exn in
   let rec walk state =
     let all_moves = Game_state.get_all_moves state in
     let next_states =
@@ -1954,25 +2006,25 @@ let%expect_test "Capture Go random walk till terminal state (goal 1)" =
   random_walk_capturego ~random_seed:42 ~goal_captures:1;
   [%expect
     {|
-    . W W . . W W W B . . W W B . B . . W
-    . . . . W B . W . W B B B . . W W . B
-    W . . . W W B W W . B B W . . B B W .
-    B B W W . W W . . W B . W W . . W W B
-    W . . . B B W . . . . . . W B . W . .
-    . . . . B W W . . . W . . . W . W B W
-    . W W B W W W . B B . . . W W . . . .
-    . B . . W W B B W . . . B . W W . . W
-    . . . W B B W W B B . . . . . . . . B
-    B W . B . . . B B . B . . B W B B . .
-    . B B . B . W B . . B . . W W . B B .
-    W . . B B . . . W W W B B B B . B . .
-    . W B B W W W B . B W B W . . B . B B
-    W B . W W . W . . W W W B B . . B B B
-    B W . . W . W W . . . W . W . B B B B
-    . W . B B . B B . . . . . . B . W B .
-    . B B . W B . . W B . W W . . . . . B
-    . W . . . B B W . B . B B . B . W . .
-    B . W . B . B . . B B W . W . B W . W
+    W W . W B . . B W W . . . . . B . W B
+    . . . W . W B B . . W . B B . W B B .
+    B B . . . . B . . . . B B . W . W . B
+    W . . B . B . W W B B . W W . W . . W
+    . B B B . . W . . . . B . B B . W . W
+    . B W W B B B B B . . B B . B . . . W
+    B . . W . B W . W . W B . . . . W . W
+    . W W W . . W . W . . W . B . . . W W
+    B . . B . . W W . B . B W W B B B W W
+    B W W . B . . W W . W W . . . B . . W
+    B . . . . B . . . . W W B . . W B W W
+    . . . B B W . . W B . . . B . . . . .
+    . B . W B W W B . W B . . . . W W . B
+    . . . W . . W W B . W . B . . B . B B
+    . W . . . . B B B W . B . . B . B . B
+    W W . W . B B B . B . B . . B . W B .
+    W . . W B W B . . . . . . . W . . B B
+    . W W W . . W W . W . . . . . . . . .
+    W B . . . . . . . . B . . W . . . B .
     (Winner Black)
     Black captures: 1
     White captures: 0
@@ -1981,56 +2033,55 @@ let%expect_test "Capture Go random walk till terminal state (goal 1)" =
   random_walk_capturego ~random_seed:7 ~goal_captures:1;
   [%expect
     {|
-    B B . W B B . . W . . W . B . B W . .
-    W . . . W . . . B W W . W . W B W W W
-    . . B B W B . W . B B B . . . W B W .
-    . B B . . . . . W . B B . . . B . . .
-    B . . W W . W . W . . B . . W W . . W
-    W W W W W . W . . W B . W B W . . B B
-    . W . W W B W B . . B B W . . . . W B
-    . B B W . B . W W . . . W B . W . . B
-    . . W B B W B . W . B B . W W B B . .
-    W W B . . W W . W . B B W B . . . . W
-    . . B . W W . B . B B B W B . . B W .
-    W . W W . W B B W . W W . B W W B B B
-    . . . B W B . W . . . B W . W . B . .
-    B B . B W B . . B . . . B . B . . W .
-    . B W . . . W . B . . B . . W W B W B
-    W . W . B . . B . B . B . . B . . B B
-    B . . . W B . . B B B B . B W B B . .
-    B B . W . W . . . W . W . . . . . B W
-    W . W W . . W . B . W . B . W . . . B
-    (Winner Black)
-    Black captures: 1
-    White captures: 0
+    B . B . . . . . . . . W . . W . . . .
+    . W . . . . B . W . . W . . W B W W .
+    W . . . . W W . . . W . B . W . . . .
+    . W . . . . . W W W . . . . B . . . B
+    W . W B B . B B . . W B . . . B . . .
+    B . . . . . B . . W W B W . . . . B .
+    . . B B W W B . B . B . . . W . . . B
+    W . W . . . W W . . B W B . . W W . .
+    W . W B W B . B . W W . . W . B . . .
+    . . W B . B . . . . . . . W . W W B W
+    . . . . B . . B . . B B . B B . . . .
+    B . W B . B . . . . W . W W . . . B .
+    . . . . W B B . . B . . . . . W . . .
+    . . . . . . . W . . . . . . . . . W .
+    . . B . . . . . . B . . B . . W . . W
+    B B W . B . W B . . . W . . . . W B B
+    . . W B . B . . W . B . . . . . W B .
+    W . . . B . . W B B . . B . W . W . .
+    W . . . B W . . W . B B B B W W . B .
+    (Winner White)
+    Black captures: 0
+    White captures: 1
     Goal captures: 1
     |}];
   random_walk_capturego ~random_seed:12 ~goal_captures:5;
   [%expect
     {|
-    W W B B . B W B B W B B B . B W B W .
-    W . . B B B . B W W . . W B W W B W W
-    W B W B W . B B W B . W W W W W B B B
-    B W B . W B W . W B B B W . B W W B B
-    . W W W B . B . B . W . W W W . W . .
-    W B B B W . B B W . W B W B B B W W W
-    W B B W W W W B B . B B B W B . W . B
-    W W . B W . B W . . W B B W W B B B B
-    . W W B B W W . W B W B . W . . B B W
-    W W . . B B W W W W B . W W W . W . W
-    B . . B W W B B . W B B B B . W W B W
-    B B B W W W . W W B B B B W W W B W .
-    B W B B W W W B W W W B . W B . . W W
-    . W W B . . . B . W B B B B B W W B .
-    . B B B B W W B B B W W W W W B B . B
-    B W . . B B W W W W . B . B . B W B W
-    B B B B . B W . W B B W B W W W W W .
-    W B B B B W W W W B W W W W . W . . W
-    . W . W B B W . B B B W W . . . . . .
-    (Winner White)
-    Black captures: 3
-    White captures: 13
+    W W W W W B B . B W B B W . B W . . .
+    W W W W . B W B . . . W B W W . . B B
+    W W B . W B . B B B . . B W W W B B .
+    B . . B W W . B W W W B B . B . B . B
+    . B W W B B W . W B B W . B W W . B B
+    B B W W B . B B B B . W B . W . . B .
+    W W . B B W B . W B . B W W . B W . B
+    . B B . B . W B B B . B B B . W B W B
+    B B . B W B W . . W B W . B W B B B B
+    B W W B W W W . B W . B B W . W . B .
+    W W W W . B W W B W B W . W W B B B .
+    W W . B W W B B W W . . B . W B W W W
+    W W B W . . B B B B W . B W . W . B B
+    W B W W . . B B B B B B B B W B W B .
+    B . B W B W W W B B B B B . W B B . W
+    W W W B W W W W B . W B W W . W . B B
+    W W W . W B W . . B B W W W W B W . B
+    B W . W . B . . W W W W . B W . B . W
+    B . . W W B W B B . . . W W W W W B W
+    (Winner Black)
+    Black captures: 5
+    White captures: 4
     Goal captures: 5
-    |}];
+    |}]
 ;;
-

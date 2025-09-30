@@ -32,6 +32,7 @@ module Move : sig
   type t =
     | Place of Cell_position.t
     | Pass
+  [@@deriving sexp, equal]
 end
 
 module Decision : sig

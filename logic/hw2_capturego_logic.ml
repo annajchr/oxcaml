@@ -176,21 +176,21 @@ module Game_state = struct
     | Decision.In_progress { whose_turn } ->
       let moves = ref [] in
       for row = 0 to 18 do
-        for column = 0 to 18 do
-          if Option.is_none t.board.(row).(column)
-          then (
-            let pos = { Cell_position.row; column } in
-            let move = Move.Place pos in
-            let error, new_board = validate_move t whose_turn move in
-            match error with
-            | None ->
-              (* Checks if making the move leads to a self KO *)
-              let _, has_liberty = get_stone_group new_board pos in
-              if has_liberty then moves := move :: !moves
-            | Some _ -> ())
-        done
+      for column = 0 to 18 do
+        if Option.is_none t.board.(row).(column)
+        then (
+        let pos = { Cell_position.row; column } in
+        let move = Move.Place pos in
+        let error, new_board = validate_move t whose_turn move in
+        match error with
+        | None ->
+          (* Checks if making the move leads to a self KO *)
+          let _, has_liberty = get_stone_group new_board pos in
+          if has_liberty then moves := move :: !moves
+        | Some _ -> ())
+      done
       done;
-      Move.Pass :: List.rev !moves
+      List.rev !moves
   ;;
 
   let neighbors_of pos =
