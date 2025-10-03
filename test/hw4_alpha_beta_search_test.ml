@@ -89,8 +89,7 @@ let%expect_test "alpha_beta chooses correct move for simple capture" =
     AI chooses: Place stone at row 0, column 2 |}]
 ;;
 
-
-   let%expect_test "AI vs AI: first to 1 capture" =
+let%expect_test "AI vs AI: first to 1 capture" =
   let state = Game_state.create ~goal_captures:1 |> Result.ok |> Option.value_exn in
   let rec ai_vs_ai state depth =
     pretty_print_board state;
@@ -98,15 +97,16 @@ let%expect_test "alpha_beta chooses correct move for simple capture" =
     | Decision.Winner _ | Decision.Stalemate -> state
     | Decision.In_progress _ ->
       let move = best_move state in
-      match move with
-      | None -> state
-      | Some m ->
-        match Game_state.make_move state m with
-        | Ok next_state -> ai_vs_ai next_state depth
-        | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
+      (match move with
+       | None -> state
+       | Some m ->
+         (match Game_state.make_move state m with
+          | Ok next_state -> ai_vs_ai next_state depth
+          | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])))
   in
   let _final_state = ai_vs_ai state 1 in
-  [%expect {|
+  [%expect
+    {|
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
@@ -1305,7 +1305,7 @@ let%expect_test "alpha_beta chooses correct move for simple capture" =
     Goal captures: 1 |}]
 ;;
 
-   let%expect_test "AI vs AI: first to 20 captures" =
+let%expect_test "AI vs AI: first to 20 captures" =
   let state = Game_state.create ~goal_captures:20 |> Result.ok |> Option.value_exn in
   let rec ai_vs_ai state depth =
     pretty_print_board state;
@@ -1313,15 +1313,16 @@ let%expect_test "alpha_beta chooses correct move for simple capture" =
     | Decision.Winner _ | Decision.Stalemate -> state
     | Decision.In_progress _ ->
       let move = best_move state in
-      match move with
-      | None -> state
-      | Some m ->
-        match Game_state.make_move state m with
-        | Ok next_state -> ai_vs_ai next_state depth
-        | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
+      (match move with
+       | None -> state
+       | Some m ->
+         (match Game_state.make_move state m with
+          | Ok next_state -> ai_vs_ai next_state depth
+          | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])))
   in
   let _final_state = ai_vs_ai state 1 in
-  [%expect {|
+  [%expect
+    {|
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
@@ -6338,24 +6339,27 @@ let%expect_test "alpha_beta chooses correct move for simple capture" =
     Goal captures: 20 |}]
 ;;
 
-   let%expect_test "AI vs AI: first to 20 captures; Black plays first" =
+let%expect_test "AI vs AI: first to 20 captures; Black plays first" =
   let state = Game_state.create ~goal_captures:20 |> Result.ok |> Option.value_exn in
-  let black_goes_first_state = Game_state.make_move state (Move.Pass) |> Result.ok |> Option.value_exn in
+  let black_goes_first_state =
+    Game_state.make_move state Move.Pass |> Result.ok |> Option.value_exn
+  in
   let rec ai_vs_ai state depth =
     pretty_print_board state;
     match state.decision with
     | Decision.Winner _ | Decision.Stalemate -> state
     | Decision.In_progress _ ->
       let move = best_move state in
-      match move with
-      | None -> state
-      | Some m ->
-        match Game_state.make_move state m with
-        | Ok next_state -> ai_vs_ai next_state depth
-        | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
+      (match move with
+       | None -> state
+       | Some m ->
+         (match Game_state.make_move state m with
+          | Ok next_state -> ai_vs_ai next_state depth
+          | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])))
   in
   let _final_state = ai_vs_ai black_goes_first_state 1 in
-  [%expect {|
+  [%expect
+    {|
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
@@ -11372,7 +11376,7 @@ let%expect_test "alpha_beta chooses correct move for simple capture" =
     Goal captures: 20 |}]
 ;;
 
-   let%expect_test "AI vs AI: first to 40 captures" =
+let%expect_test "AI vs AI: first to 40 captures" =
   let state = Game_state.create ~goal_captures:40 |> Result.ok |> Option.value_exn in
   let rec ai_vs_ai state depth =
     pretty_print_board state;
@@ -11380,15 +11384,16 @@ let%expect_test "alpha_beta chooses correct move for simple capture" =
     | Decision.Winner _ | Decision.Stalemate -> state
     | Decision.In_progress _ ->
       let move = best_move state in
-      match move with
-      | None -> state
-      | Some m ->
-        match Game_state.make_move state m with
-        | Ok next_state -> ai_vs_ai next_state depth
-        | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])
+      (match move with
+       | None -> state
+       | Some m ->
+         (match Game_state.make_move state m with
+          | Ok next_state -> ai_vs_ai next_state depth
+          | Error e -> failwith (Sexp.to_string [%sexp (e : Game_state.Move_error.t)])))
   in
   let _final_state = ai_vs_ai state 1 in
-  [%expect {|
+  [%expect
+    {|
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
     . . . . . . . . . . . . . . . . . . .
@@ -20910,5 +20915,5 @@ let%expect_test "alpha_beta chooses correct move for simple capture" =
     (Winner White)
     Black captures: 38
     White captures: 41
-    Goal captures: 40 |}];
+    Goal captures: 40 |}]
 ;;

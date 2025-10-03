@@ -1,4 +1,3 @@
-
 open! Core
 open Hw2_capturego_logic
 

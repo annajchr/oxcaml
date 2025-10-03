@@ -56,9 +56,15 @@ module Game_state : sig
     ; white_captures : int
     ; decision : Decision.t
     ; last_move : Move.t option (** For animation purposes. *)
-    } [@@deriving sexp, equal]
-    val get_stone_group : Stone.t option array array -> Cell_position.t -> (Cell_position.t list * bool)
-    val neighbors_of : Cell_position.t -> Cell_position.t list
+    }
+  [@@deriving sexp, equal]
+
+  val get_stone_group
+    :  Stone.t option array array
+    -> Cell_position.t
+    -> Cell_position.t list * bool
+
+  val neighbors_of : Cell_position.t -> Cell_position.t list
 
   module Create_error : sig
     type t = Goal_captures_less_than_one [@@deriving sexp]

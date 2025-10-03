@@ -19,12 +19,14 @@ module Cell_position = struct
     ; column : int
     }
   [@@deriving sexp, compare, hash, equal]
-  include Comparable.Make(struct
-    type nonrec t = t
-    let compare = compare
-    let sexp_of_t = sexp_of_t
-    let t_of_sexp = t_of_sexp
-  end)
+
+  include Comparable.Make (struct
+      type nonrec t = t
+
+      let compare = compare
+      let sexp_of_t = sexp_of_t
+      let t_of_sexp = t_of_sexp
+    end)
 end
 
 module Stone = struct
@@ -113,7 +115,7 @@ module Game_state = struct
   ;;
 
   let validate_move (t : t) (whose_turn : Player_kind.t) (move : Move.t)
-      : Move_error.t option * Stone.t option array array
+    : Move_error.t option * Stone.t option array array
     =
     match move with
     | Move.Pass -> None, t.board
@@ -176,19 +178,19 @@ module Game_state = struct
     | Decision.In_progress { whose_turn } ->
       let moves = ref [] in
       for row = 0 to 18 do
-      for column = 0 to 18 do
-        if Option.is_none t.board.(row).(column)
-        then (
-        let pos = { Cell_position.row; column } in
-        let move = Move.Place pos in
-        let error, new_board = validate_move t whose_turn move in
-        match error with
-        | None ->
-          (* Checks if making the move leads to a self KO *)
-          let _, has_liberty = get_stone_group new_board pos in
-          if has_liberty then moves := move :: !moves
-        | Some _ -> ())
-      done
+        for column = 0 to 18 do
+          if Option.is_none t.board.(row).(column)
+          then (
+            let pos = { Cell_position.row; column } in
+            let move = Move.Place pos in
+            let error, new_board = validate_move t whose_turn move in
+            match error with
+            | None ->
+              (* Checks if making the move leads to a self KO *)
+              let _, has_liberty = get_stone_group new_board pos in
+              if has_liberty then moves := move :: !moves
+            | Some _ -> ())
+        done
       done;
       List.rev !moves
   ;;
@@ -207,8 +209,10 @@ module Game_state = struct
             for dr = -2 to 2 do
               for dc = -2 to 2 do
                 let r, c = row + dr, column + dc in
-                if r >= 0 && r < 19 && c >= 0 && c < 19 then
-                  if Option.is_none t.board.(r).(c) then
+                if r >= 0 && r < 19 && c >= 0 && c < 19
+                then
+                  if Option.is_none t.board.(r).(c)
+                  then
                     Hash_set.add candidate_positions { Cell_position.row = r; column = c }
               done
             done
@@ -218,29 +222,28 @@ module Game_state = struct
       let moves =
         Hash_set.to_list candidate_positions
         |> List.filter_map ~f:(fun pos ->
-            let move = Move.Place pos in
-            let error, new_board = validate_move t whose_turn move in
-            match error with
-            | None ->
-              let _, has_liberty = get_stone_group new_board pos in
-              if has_liberty then Some move else None
-            | Some _ -> None)
+          let move = Move.Place pos in
+          let error, new_board = validate_move t whose_turn move in
+          match error with
+          | None ->
+            let _, has_liberty = get_stone_group new_board pos in
+            if has_liberty then Some move else None
+          | Some _ -> None)
       in
       (* If no candidate moves found (e.g. empty board), allow all moves *)
-      if List.is_empty moves then
+      if List.is_empty moves
+      then (
         let all_moves =
-          List.init 19 ~f:(fun row ->
-            List.init 19 ~f:(fun column -> row, column))
+          List.init 19 ~f:(fun row -> List.init 19 ~f:(fun column -> row, column))
           |> List.concat
           |> List.filter_map ~f:(fun (row, column) ->
-            if Option.is_none t.board.(row).(column) then
-              Some (Move.Place { Cell_position.row; column })
+            if Option.is_none t.board.(row).(column)
+            then Some (Move.Place { Cell_position.row; column })
             else None)
         in
-        all_moves
-      else
-        List.rev moves
-  ;; 
+        all_moves)
+      else List.rev moves
+  ;;
 
   let neighbors_of pos =
     List.filter_map directions ~f:(fun (dr, dc) ->
@@ -278,9 +281,9 @@ module Game_state = struct
   ;;
 
   let is_positional_ko_violation
-      (board : Stone.t option array array)
-      (previous_states : Board_set.t)
-      : bool
+        (board : Stone.t option array array)
+        (previous_states : Board_set.t)
+    : bool
     =
     let board_list = Board_state.of_board board in
     Set.mem previous_states board_list
@@ -291,55 +294,57 @@ module Game_state = struct
     | Decision.Winner _ | Decision.Stalemate -> Error Move_error.Game_is_over
     | Decision.In_progress { whose_turn } ->
       let error, new_board = validate_move t whose_turn move in
-      match error, new_board, move with
-      | Some err, _, _ -> Error err
-      | _, _, Move.Pass ->
-        Ok
-          { t with
-            decision =
-              Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }
-          ; last_move = Some Move.Pass
-          }
-      | _, new_board, Move.Place pos ->
-        let board_after_capture, captured_count =
-          remove_captured_stones new_board whose_turn pos
-        in
-        (* Check self-capture  or KO violation after opponent stones are removed *)
-        let _, has_liberty = get_stone_group board_after_capture pos in
-        if not has_liberty
-        then Error Move_error.Self_capture_violation
-        else if is_positional_ko_violation board_after_capture t.previous_states
-        then Error Move_error.Ko_violation
-        else (
-          let black_captures, white_captures =
-            match whose_turn with
-            | Player_kind.Black -> t.black_captures + captured_count, t.white_captures
-            | Player_kind.White -> t.black_captures, t.white_captures + captured_count
-          in
-          let new_previous_states =
-            Set.add t.previous_states (Board_state.of_board board_after_capture)
-          in
-          (* Check winner after processing captures *)
-          let winner =
-            match black_captures >= t.goal_captures, white_captures >= t.goal_captures with
-            | true, _ -> Some Player_kind.Black
-            | false, true -> Some Player_kind.White
-            | false, false -> None
-          in
-          let decision =
-            match winner with
-            | Some p -> Decision.Winner p
-            | None ->
-              Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }
-          in
-          Ok
-            { t with
-              board = board_after_capture
-            ; previous_states = new_previous_states
-            ; black_captures
-            ; white_captures
-            ; decision
-            ; last_move = Some move
-            })
+      (match error, new_board, move with
+       | Some err, _, _ -> Error err
+       | _, _, Move.Pass ->
+         Ok
+           { t with
+             decision =
+               Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }
+           ; last_move = Some Move.Pass
+           }
+       | _, new_board, Move.Place pos ->
+         let board_after_capture, captured_count =
+           remove_captured_stones new_board whose_turn pos
+         in
+         (* Check self-capture  or KO violation after opponent stones are removed *)
+         let _, has_liberty = get_stone_group board_after_capture pos in
+         if not has_liberty
+         then Error Move_error.Self_capture_violation
+         else if is_positional_ko_violation board_after_capture t.previous_states
+         then Error Move_error.Ko_violation
+         else (
+           let black_captures, white_captures =
+             match whose_turn with
+             | Player_kind.Black -> t.black_captures + captured_count, t.white_captures
+             | Player_kind.White -> t.black_captures, t.white_captures + captured_count
+           in
+           let new_previous_states =
+             Set.add t.previous_states (Board_state.of_board board_after_capture)
+           in
+           (* Check winner after processing captures *)
+           let winner =
+             match
+               black_captures >= t.goal_captures, white_captures >= t.goal_captures
+             with
+             | true, _ -> Some Player_kind.Black
+             | false, true -> Some Player_kind.White
+             | false, false -> None
+           in
+           let decision =
+             match winner with
+             | Some p -> Decision.Winner p
+             | None ->
+               Decision.In_progress { whose_turn = Player_kind.opposite whose_turn }
+           in
+           Ok
+             { t with
+               board = board_after_capture
+             ; previous_states = new_previous_states
+             ; black_captures
+             ; white_captures
+             ; decision
+             ; last_move = Some move
+             }))
   ;;
 end
