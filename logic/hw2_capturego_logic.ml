@@ -193,6 +193,55 @@ module Game_state = struct
       List.rev !moves
   ;;
 
+  (* Get's moves around a 2 stone radius of existing stones. *)
+  let _get_all_moves_alpha_beta (t : t) : Move.t list =
+    match t.decision with
+    | Decision.Winner _ | Decision.Stalemate -> [ Move.Pass ]
+    | Decision.In_progress { whose_turn } ->
+      let candidate_positions = Hash_set.create (module Cell_position) in
+      for row = 0 to 18 do
+        for column = 0 to 18 do
+          match t.board.(row).(column) with
+          | Some _ ->
+            (* For each filled cell, add all empty cells within a 2-cell radius *)
+            for dr = -2 to 2 do
+              for dc = -2 to 2 do
+                let r, c = row + dr, column + dc in
+                if r >= 0 && r < 19 && c >= 0 && c < 19 then
+                  if Option.is_none t.board.(r).(c) then
+                    Hash_set.add candidate_positions { Cell_position.row = r; column = c }
+              done
+            done
+          | None -> ()
+        done
+      done;
+      let moves =
+        Hash_set.to_list candidate_positions
+        |> List.filter_map ~f:(fun pos ->
+            let move = Move.Place pos in
+            let error, new_board = validate_move t whose_turn move in
+            match error with
+            | None ->
+              let _, has_liberty = get_stone_group new_board pos in
+              if has_liberty then Some move else None
+            | Some _ -> None)
+      in
+      (* If no candidate moves found (e.g. empty board), allow all moves *)
+      if List.is_empty moves then
+        let all_moves =
+          List.init 19 ~f:(fun row ->
+            List.init 19 ~f:(fun column -> row, column))
+          |> List.concat
+          |> List.filter_map ~f:(fun (row, column) ->
+            if Option.is_none t.board.(row).(column) then
+              Some (Move.Place { Cell_position.row; column })
+            else None)
+        in
+        all_moves
+      else
+        List.rev moves
+  ;; 
+
   let neighbors_of pos =
     List.filter_map directions ~f:(fun (dr, dc) ->
       let r, c = pos.Cell_position.row + dr, pos.column + dc in

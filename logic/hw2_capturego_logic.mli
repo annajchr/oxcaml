@@ -56,8 +56,9 @@ module Game_state : sig
     ; white_captures : int
     ; decision : Decision.t
     ; last_move : Move.t option (** For animation purposes. *)
-    }
-  [@@deriving sexp, equal]
+    } [@@deriving sexp, equal]
+    val get_stone_group : Stone.t option array array -> Cell_position.t -> (Cell_position.t list * bool)
+    val neighbors_of : Cell_position.t -> Cell_position.t list
 
   module Create_error : sig
     type t = Goal_captures_less_than_one [@@deriving sexp]
@@ -76,6 +77,7 @@ module Game_state : sig
   end
 
   val get_all_moves : t -> Move.t list
+  val get_all_moves_alpha_beta : t -> Move.t list
 
   (* Atari Go/ Go rules include Ko condition; https://www.pandanet.co.jp/English/learning_go/learning_go_8.html.
   There are many variations of Simple-/Super- KO rules. For Atari Go (which is first-to-one capture), a KO rule is not
