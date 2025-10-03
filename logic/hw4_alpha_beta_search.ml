@@ -224,7 +224,7 @@ let best_move (game_state : Game_state.t) : Move.t option =
           |> Result.ok
           |> Option.map ~f:(fun child -> move, child))
       in
-      (* If any moves resulted in a capture, prioritize those moves any other heuristic. *)
+      (* If any moves resulted in a capture, prioritize those moves over any other heuristic. *)
       let priority_moves =
         List.filter moves_and_children ~f:(fun (_move, child) -> is_capture game_state child whose_turn)
       in
