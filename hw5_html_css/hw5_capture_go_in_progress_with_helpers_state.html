@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html ng-app="myApp">
+
+<head>
+    <meta charset="utf-8">
+    <title>Capture Go: In Progress Board</title>
+    <meta name="description" content="Capture Go game">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="stylesheet" type="text/css" href="hw5_static_state.css">
+    <link rel="icon" href="data:,">
+</head>
+
+<body>
+    <div class="game">
+        <div class="go-board" id="goBoard"></div>
+    </div>
+    <script>
+        const have_helpers = true; // Turn on to see atari highlighted in UI.
+        const boardSize = 19;
+        const board = document.getElementById('goBoard');
+        const stones = [
+            {row: 10, col: 10, color: 'black'},
+            {row: 10, col: 11, color: 'white', atari: true},
+            {row: 10, col: 12, color: 'black'},
+            {row: 11, col: 11, color: 'black'}
+        ];
+        for (let row = 0; row < boardSize; row++) {
+            for (let col = 0; col < boardSize; col++) {
+                const cell = document.createElement('div');
+                cell.className = 'go-cell';
+                cell.dataset.row = row;
+                cell.dataset.col = col;
+                const stone = stones.find(s => s.row === row && s.col === col);
+                if (stone) {
+                    const stoneDiv = document.createElement('div');
+                    let classes = [`go-stone`, `go-stone-${stone.color}`];
+                    if (stone.atari && have_helpers) {
+                        classes.push('go-stone-atari');
+                    }
+                    stoneDiv.className = classes.join(' ');
+                    cell.appendChild(stoneDiv);
+                }
+                board.appendChild(cell);
+            }
+        }
+    </script>
+</body>
+
+</html>

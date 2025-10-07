@@ -1,3 +1,48 @@
+/* Stone styles for Go board */
+.go-stone {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 70%;
+  height: 70%;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  z-index: 2;
+}
+.go-stone-black {
+  background: radial-gradient(circle at 60% 40%, #444 60%, #111 100%);
+  border: 2px solid #222;
+}
+.go-stone-white {
+  background: radial-gradient(circle at 60% 40%, #fff 60%, #eee 100%);
+  border: 2px solid #bbb;
+}
+.go-stone-atari {
+  box-shadow: 0 0 10px 3px #e53935, 0 2px 6px rgba(0,0,0,0.2);
+}
+.go-stone.go-stone-atari {
+  border-color: #e53935;
+}
+/* Go board styles for Capture Go */
+.go-board {
+  display: grid;
+  grid-template-columns: repeat(19, 1fr);
+  grid-template-rows: repeat(19, 1fr);
+  width: calc(min(100vw, 100vh) - 2rem);
+  height: calc(min(100vw, 100vh) - 2rem);
+  max-width: 900px;
+  max-height: 900px;
+  margin: 1rem auto;
+  background: #f5deb3;
+  border: 2px solid #333;
+}
+
+.go-cell {
+  border: 1px solid #333;
+  aspect-ratio: 1 / 1;
+  position: relative;
+}
 /*
 We want to have the game div in the middle of the screen.
 

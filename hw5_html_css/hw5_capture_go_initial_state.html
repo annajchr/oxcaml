@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html ng-app="myApp">
+
+<head>
+    <meta charset="utf-8">
+    <title>Capture Go: Initial Board</title>
+    <meta name="description" content="Capture Go game">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="stylesheet" type="text/css" href="hw5_static_state.css">
+    <link rel="icon" href="data:,">
+</head>
+
+<body>
+    <div class="game">
+        <div class="go-board" id="goBoard"></div>
+    </div>
+    <script>
+        const boardSize = 19;
+        const board = document.getElementById('goBoard');
+        for (let row = 0; row < boardSize; row++) {
+            for (let col = 0; col < boardSize; col++) {
+                const cell = document.createElement('div');
+                cell.className = 'go-cell';
+                cell.dataset.row = row;
+                cell.dataset.col = col;
+                board.appendChild(cell);
+            }
+        }
+    </script>
+</body>
+
+</html>
