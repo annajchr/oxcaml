@@ -31,11 +31,11 @@
   align-items: center;
 }
 .go-stone-black {
-  background: radial-gradient(circle at 60% 40%, #444 60%, #111 100%);
+  border: 2px solid #222;
   border: 2px solid #222;
 }
 .go-stone-white {
-  background: radial-gradient(circle at 60% 40%, #fff 60%, #eee 100%);
+  border: 2px solid #bbb;
   border: 2px solid #bbb;
 }
 .go-stone-atari {
