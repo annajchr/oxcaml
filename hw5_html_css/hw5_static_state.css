@@ -1,3 +1,20 @@
+/* Capture counters flex layout */
+.capture-counters {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+.black-captures {
+  color: #222;
+  font-weight: bold;
+}
+.white-captures {
+  color: #222;
+  font-weight: bold;
+}
 /* Stone styles for Go board */
 .go-stone {
   position: absolute;
@@ -29,8 +46,8 @@
   display: grid;
   grid-template-columns: repeat(19, 1fr);
   grid-template-rows: repeat(19, 1fr);
-  width: calc(min(100vw, 100vh) - 2rem);
-  height: calc(min(100vw, 100vh) - 2rem);
+  width: calc(min(80vw, 80vh) - 2rem);
+  height: calc(min(80vw, 80vh) - 2rem);
   max-width: 900px;
   max-height: 900px;
   margin: 1rem auto;
