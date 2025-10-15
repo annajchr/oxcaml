@@ -99,17 +99,27 @@ let capturego_board ~(game_state : Game_state.t) ~inject =
 ;;
 
 
+
+type setup_action =
+  | SetGoalCaptures of int
+[@@deriving sexp]
+
+module Setup_action = struct
+  type t = setup_action [@@deriving sexp]
+end
+
 let app =
-  let initial_state =
-    Game_state.create ~goal_captures:1 (* TODO Add option for x-capture game. *)
-    |> Result.ok
-    |> Option.value_exn
-  in
-  let%sub model_and_inject =
+  let%sub goal_captures, set_goal_captures = Bonsai.state (module Int) ~default_model:0 in
+  let%sub game_started, set_game_started = Bonsai.state (module Bool) ~default_model:false in
+  let%sub game_state_and_inject =
     Bonsai.state_machine0
       (module Game_state)
       (module Action)
-      ~default_model:initial_state
+      ~default_model:(
+        Game_state.create ~goal_captures:1
+        |> Result.ok
+        |> Option.value_exn
+      )
       ~apply_action:(fun ~inject:_ ~schedule_event:_ model action ->
         match action with
         | Place (row, column) ->
@@ -119,8 +129,42 @@ let app =
           | Error _ -> model
       )
   in
-  let%arr game_state, inject = model_and_inject in
-  capturego_board ~game_state ~inject
+  let%arr goal_captures = goal_captures
+  and set_goal_captures = set_goal_captures
+  and game_started = game_started
+  and set_game_started = set_game_started
+  and game_state, inject = game_state_and_inject in
+  if not game_started then
+    let input_attrs =
+  [ Vdom.Attr.type_ "number"
+  ; Vdom.Attr.value (Int.to_string goal_captures)
+  ; Vdom.Attr.min 1.
+  ; Vdom.Attr.on_input (fun _ v ->
+    match Int.of_string_opt v with
+    | Some n when n > 0 -> set_goal_captures n
+    | _ -> Vdom.Effect.Ignore)
+  ]
+    in
+    let start_button =
+      Vdom.Node.button
+        ~attrs:[
+          Vdom.Attr.on_click (fun _ ->
+            if goal_captures > 0 then
+              Ui_effect.Many [set_game_started true; Vdom.Effect.Ignore]
+            else Vdom.Effect.Ignore
+          )
+        ]
+        [Vdom.Node.text "Start Game"]
+    in
+    Vdom.Node.div
+      ~attrs:[Vdom.Attr.class_ "setup-screen"]
+      [ Vdom.Node.h2 [Vdom.Node.text "Capture Go"]
+      ; Vdom.Node.label [Vdom.Node.text "Play to how many captures? "]
+      ; Vdom.Node.input ~attrs:input_attrs ()
+      ; start_button
+      ]
+  else
+    capturego_board ~game_state ~inject
 ;;
 
 let () = Bonsai_web.Start.start ~bind_to_element_with_id:"app" app
