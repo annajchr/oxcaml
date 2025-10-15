@@ -38,7 +38,8 @@ module Action = struct
   type t = action [@@deriving sexp]
 end
 
-let capturego_board ~(game_state : Game_state.t) ~inject =
+
+let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again =
   let is_game_over = Decision.is_game_over game_state.decision in
   let game_over_text =
     match game_state.decision with
@@ -90,7 +91,14 @@ let capturego_board ~(game_state : Game_state.t) ~inject =
   in
   let game_over_message =
     match game_over_text with
-    | Some txt -> Vdom.Node.div ~attrs:[Vdom.Attr.class_ "game-over-message"] [Vdom.Node.text txt]
+    | Some txt ->
+      Vdom.Node.div
+        ~attrs:[Vdom.Attr.class_ "game-over-message"]
+        [ Vdom.Node.text txt
+        ; Vdom.Node.button
+            ~attrs:[Vdom.Attr.on_click (fun _ -> on_play_again)]
+            [Vdom.Node.text "Play Again"]
+        ]
     | None -> Vdom.Node.none
   in
   Vdom.Node.div
@@ -111,46 +119,51 @@ end
 let app =
   let%sub goal_captures, set_goal_captures = Bonsai.state (module Int) ~default_model:0 in
   let%sub game_started, set_game_started = Bonsai.state (module Bool) ~default_model:false in
-  let%sub game_state_and_inject =
-    Bonsai.state_machine0
-      (module Game_state)
-      (module Action)
-      ~default_model:(
-        Game_state.create ~goal_captures:1
-        |> Result.ok
-        |> Option.value_exn
-      )
-      ~apply_action:(fun ~inject:_ ~schedule_event:_ model action ->
-        match action with
-        | Place (row, column) ->
-          let move = Move.Place { Cell_position.row = row; column } in
-          match Game_state.make_move model move with
-          | Ok new_model -> new_model
-          | Error _ -> model
-      )
-  in
+  let%sub game_state, set_game_state = Bonsai.state (module Game_state) ~default_model:(
+    Game_state.create ~goal_captures:1 |> Result.ok |> Option.value_exn
+  ) in
   let%arr goal_captures = goal_captures
   and set_goal_captures = set_goal_captures
   and game_started = game_started
   and set_game_started = set_game_started
-  and game_state, inject = game_state_and_inject in
+  and game_state = game_state
+  and set_game_state = set_game_state in
+  let inject action =
+    match action with
+    | Place (row, column) ->
+      let move = Move.Place { Cell_position.row = row; column } in
+      match Game_state.make_move game_state move with
+      | Ok new_model -> set_game_state new_model
+      | Error _ -> Ui_effect.Ignore
+  in
+  let on_play_again =
+    Ui_effect.Many [
+      set_game_started false;
+      set_goal_captures 0;
+      set_game_state (Game_state.create ~goal_captures:1 |> Result.ok |> Option.value_exn)
+    ]
+  in
   if not game_started then
     let input_attrs =
-  [ Vdom.Attr.type_ "number"
-  ; Vdom.Attr.value (Int.to_string goal_captures)
-  ; Vdom.Attr.min 1.
-  ; Vdom.Attr.on_input (fun _ v ->
-    match Int.of_string_opt v with
-    | Some n when n > 0 -> set_goal_captures n
-    | _ -> Vdom.Effect.Ignore)
-  ]
+      [ Vdom.Attr.type_ "number"
+      ; Vdom.Attr.value (Int.to_string goal_captures)
+      ; Vdom.Attr.min 1.
+      ; Vdom.Attr.on_input (fun _ v ->
+          match Int.of_string_opt v with
+          | Some n when n > 0 -> set_goal_captures n
+          | _ -> Vdom.Effect.Ignore)
+      ]
     in
     let start_button =
       Vdom.Node.button
         ~attrs:[
           Vdom.Attr.on_click (fun _ ->
             if goal_captures > 0 then
-              Ui_effect.Many [set_game_started true; Vdom.Effect.Ignore]
+              Ui_effect.Many [
+                set_game_state (Game_state.create ~goal_captures |> Result.ok |> Option.value_exn);
+                set_game_started true;
+                Vdom.Effect.Ignore
+              ]
             else Vdom.Effect.Ignore
           )
         ]
@@ -164,7 +177,7 @@ let app =
       ; start_button
       ]
   else
-    capturego_board ~game_state ~inject
+    capturego_board ~game_state ~inject ~on_play_again:on_play_again
 ;;
 
 let () = Bonsai_web.Start.start ~bind_to_element_with_id:"app" app
