@@ -39,7 +39,7 @@ module Action = struct
 end
 
 
-let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again =
+let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again ~last_error =
   let is_game_over = Decision.is_game_over game_state.decision in
   let game_over_text =
     match game_state.decision with
@@ -57,12 +57,18 @@ let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again =
           [Vdom.Node.text ("White captures: " ^ Int.to_string game_state.white_captures)]
       ]
   in
+  let error_banner =
+    match last_error with
+    | Some (_row, _col, msg) when not (String.is_empty msg) ->
+      Vdom.Node.div ~attrs:[ Vdom.Attr.class_ "move-error-banner" ] [ Vdom.Node.text msg ]
+    | _ -> Vdom.Node.none
+  in
   let board =
     Vdom.Node.div
       ~attrs:[ Vdom.Attr.class_ "go-board" ]
       (List.concat_map (List.init board_size ~f:(fun i -> i)) ~f:(fun row ->
         List.map (List.init board_size ~f:(fun i -> i)) ~f:(fun column ->
-          let cell_value = lookup_cell game_state ~row ~column in
+       let cell_value = lookup_cell game_state ~row ~column in
           let stone_node =
             match cell_value with
             | Some stone ->
@@ -79,9 +85,15 @@ let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again =
               Vdom.Node.div ~attrs:[Vdom.Attr.class_ ("go-stone" ^ extra_class)] [stone_vdom]
             | None -> Vdom.Node.none
           in
+          let is_error_cell =
+            match last_error with
+            | Some (err_row, err_col, _msg) -> err_row = row && err_col = column
+            | None -> false
+          in
+          let classes = if is_error_cell then "go-cell cell-error" else "go-cell" in
           Vdom.Node.div
             ~attrs:[
-              Vdom.Attr.class_ "go-cell";
+              Vdom.Attr.class_ classes;
               Vdom.Attr.on_click (fun _ ->
                 if is_game_over then Vdom.Effect.Ignore else inject (Place (row, column)))
             ]
@@ -103,7 +115,7 @@ let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again =
   in
   Vdom.Node.div
     ~attrs:[Vdom.Attr.class_ "capturego-container"]
-    [ capture_counters; board; game_over_message ]
+    [ capture_counters; error_banner; board; game_over_message ]
 ;;
 
 
@@ -122,26 +134,38 @@ let app =
   let%sub game_state, set_game_state = Bonsai.state (module Game_state) ~default_model:(
     Game_state.create ~goal_captures:1 |> Result.ok |> Option.value_exn
   ) in
+  let%sub last_error, set_last_error = Bonsai.state (module struct
+    type t = (int * int * string) option [@@deriving sexp, equal]
+  end) ~default_model:None in
   let%arr goal_captures = goal_captures
   and set_goal_captures = set_goal_captures
   and game_started = game_started
   and set_game_started = set_game_started
   and game_state = game_state
-  and set_game_state = set_game_state in
+  and set_game_state = set_game_state
+  and last_error = last_error
+  and set_last_error = set_last_error in
   let inject action =
     match action with
     | Place (row, column) ->
       let move = Move.Place { Cell_position.row = row; column } in
-      match Game_state.make_move game_state move with
-      | Ok new_model -> set_game_state new_model
-      | Error _ -> Ui_effect.Ignore
+      (match Game_state.make_move game_state move with
+       | Ok new_model ->
+         Ui_effect.Many [ set_game_state new_model; set_last_error None ]
+       | Error err ->
+         let msg =
+           (match err with
+           | Game_state.Move_error.Game_is_over -> "Game is already over"
+           | Game_state.Move_error.Space_already_filled -> "Space already filled"
+           | Game_state.Move_error.Illegal_cell_position -> "Illegal cell position"
+           | Game_state.Move_error.Ko_violation -> "Move violates Ko rule"
+           | Game_state.Move_error.Self_capture_violation -> "Move would be self-capture"
+           )
+         in
+         Ui_effect.Many [ set_last_error (Some (row, column, msg)) ])
   in
   let on_play_again =
-    Ui_effect.Many [
-      set_game_started false;
-      set_goal_captures 0;
-      set_game_state (Game_state.create ~goal_captures:1 |> Result.ok |> Option.value_exn)
-    ]
+    Ui_effect.Many [ set_game_started false; set_goal_captures 0; set_game_state (Game_state.create ~goal_captures:1 |> Result.ok |> Option.value_exn); set_last_error None ]
   in
   if not game_started then
     let input_attrs =
@@ -159,11 +183,7 @@ let app =
         ~attrs:[
           Vdom.Attr.on_click (fun _ ->
             if goal_captures > 0 then
-              Ui_effect.Many [
-                set_game_state (Game_state.create ~goal_captures |> Result.ok |> Option.value_exn);
-                set_game_started true;
-                Vdom.Effect.Ignore
-              ]
+              Ui_effect.Many [ set_game_state (Game_state.create ~goal_captures |> Result.ok |> Option.value_exn); set_game_started true; set_last_error None; Vdom.Effect.Ignore ]
             else Vdom.Effect.Ignore
           )
         ]
@@ -177,7 +197,7 @@ let app =
       ; start_button
       ]
   else
-    capturego_board ~game_state ~inject ~on_play_again:on_play_again
+  capturego_board ~game_state ~inject ~on_play_again:on_play_again ~last_error:last_error
 ;;
 
 let () = Bonsai_web.Start.start ~bind_to_element_with_id:"app" app
