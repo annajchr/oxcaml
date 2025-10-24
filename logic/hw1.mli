@@ -1,32 +1,49 @@
 open! Core
 
-type player_kind =
-  | X
-  | O
+(*
+   Capture Go Game State Representation (HW1 Copy from Ocaml Playground linked in the slideshow)
+*)
 
-type cell_position =
-  { row : int
-  ; column : int
-  }
+module Player_kind : sig
+  type t =
+    | Black
+    | White
+end
 
-type decision =
-  | In_progress of { whose_turn : player_kind }
-  | Winner of player_kind
-  | Stalemate
+module Cell_position : sig
+  type t =
+    { row : int
+    ; column : int
+    }
+end
 
-type game_state =
-  { board : (cell_position * player_kind) list
-  ; rows : int
-  ; columns : int
-  ; winning_sequence_length : int
-  ; decision : decision
-  }
+module Stone : sig
+  type t =
+    { position : Cell_position.t
+    ; owner : Player_kind.t
+    }
+end
 
-type move = cell_position
+module Move : sig
+  type t =
+    | Place of Cell_position.t
+    | Pass
+end
 
-val initial_state : game_state
-val move_at_0x0 : move
-val state_after_move_at_0x0 : game_state
-val before_terminal_state : game_state
-val move_to_terminal_state : move
-val terminal_state : game_state
+module Decision : sig
+  type t =
+    | In_progress of { whose_turn : Player_kind.t }
+    | Game_over of { winner : Player_kind.t }
+    | Stalemate
+  (*If no empty positions to move and goal captures still not met (this might not be possible?)*)
+end
+
+module Game_state : sig
+  type t =
+    { board : Stone.t list
+    ; goal_captures : int
+    ; black_captures : int
+    ; white_captures : int
+    ; decision : Decision.t
+    }
+end
