@@ -48,7 +48,7 @@ module Game_state = struct
     }
 end
 
-let initial_state : Game_state.t =
+let _initial_state : Game_state.t =
   { board = []
   ; goal_captures = 10
   ; black_captures = 0
@@ -57,9 +57,9 @@ let initial_state : Game_state.t =
   }
 ;;
 
-let example_move : Move.t = Move.Place { row = 0; column = 0 }
+let _example_move : Move.t = Move.Place { row = 0; column = 0 }
 
-let example_game_state : Game_state.t =
+let _example_game_state : Game_state.t =
   { board = [ { position = { row = 0; column = 0 }; owner = Player_kind.White } ]
   ; goal_captures = 10
   ; black_captures = 0
@@ -68,7 +68,7 @@ let example_game_state : Game_state.t =
   }
 ;;
 
-let example_win_state : Game_state.t =
+let _example_win_state : Game_state.t =
   { board =
       [ { position = { row = 0; column = 0 }; owner = Player_kind.White }
       ; { position = { row = 1; column = 0 }; owner = Player_kind.Black }
