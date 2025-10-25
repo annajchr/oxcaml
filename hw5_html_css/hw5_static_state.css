@@ -17,12 +17,8 @@
 }
 /* Stone styles for Go board */
 .go-stone {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 70%;
-  height: 70%;
+  width: 80%;
+  height: 80%;
   border-radius: 50%;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   z-index: 2;
@@ -30,14 +26,7 @@
   justify-content: center;
   align-items: center;
 }
-.go-stone-black {
-  border: 2px solid #222;
-  border: 2px solid #222;
-}
-.go-stone-white {
-  border: 2px solid #bbb;
-  border: 2px solid #bbb;
-}
+
 .go-stone-atari {
   box-shadow: 0 0 10px 3px #e53935, 0 2px 6px rgba(0,0,0,0.2);
 }
@@ -46,9 +35,7 @@
 }
 /* Go board styles for Capture Go */
 .go-board {
-  display: grid;
-  grid-template-columns: repeat(19, 1fr);
-  grid-template-rows: repeat(19, 1fr);
+  position: relative;
   width: calc(min(80vw, 80vh) - 2rem);
   height: calc(min(80vw, 80vh) - 2rem);
   max-width: 900px;
@@ -56,12 +43,22 @@
   margin: 1rem auto;
   background: #f5deb3;
   border: 2px solid #333;
+  background-image:
+    linear-gradient(to right, #333 1px, transparent 1px),
+    linear-gradient(to bottom, #333 1px, transparent 1px);
+  background-size: calc(100% / 18) calc(100% / 18);
+  background-position: 0 0, 0 0;
 }
 
-.go-cell {
-  border: 1px solid #333;
-  aspect-ratio: 1 / 1;
-  position: relative;
+.intersection {
+  position: absolute;
+  width: 5.5%;
+  height: 5.5%;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 /* Move error banner */

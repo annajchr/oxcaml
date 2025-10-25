@@ -61,50 +61,53 @@ let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again ~last_er
       Vdom.Node.div ~attrs:[ Vdom.Attr.class_ "move-error-banner" ] [ Vdom.Node.text msg ]
     | _ -> Vdom.Node.none
   in
-  let board =
-    Vdom.Node.div
-      ~attrs:[ Vdom.Attr.class_ "go-board" ]
-      (List.concat_map
-         (List.init board_size ~f:(fun i -> i))
-         ~f:(fun row ->
-           List.map
-             (List.init board_size ~f:(fun i -> i))
-             ~f:(fun column ->
-               let cell_value = lookup_cell game_state ~row ~column in
-               let stone_node =
-                 match cell_value with
-                 | Some stone ->
-                   let stone_vdom =
-                     match stone.owner with
-                     | Player_kind.Black -> black_stone
-                     | Player_kind.White -> white_stone
-                   in
-                   let extra_class =
-                     match game_state.last_move with
-                     | Some (Move.Place pos) when pos.row = row && pos.column = column ->
-                       " slowly_appear"
-                     | _ -> ""
-                   in
-                   Vdom.Node.div
-                     ~attrs:[ Vdom.Attr.class_ ("go-stone" ^ extra_class) ]
-                     [ stone_vdom ]
-                 | None -> Vdom.Node.none
-               in
-               let is_error_cell =
-                 match last_error with
-                 | Some (err_row, err_col, _msg) -> err_row = row && err_col = column
-                 | None -> false
-               in
-               let classes = if is_error_cell then "go-cell cell-error" else "go-cell" in
-               Vdom.Node.div
-                 ~attrs:
-                   [ Vdom.Attr.class_ classes
-                   ; Vdom.Attr.on_click (fun _ ->
-                       if is_game_over
-                       then Vdom.Effect.Ignore
-                       else inject (Place (row, column)))
-                   ]
-                 (if Option.is_none cell_value then [] else [ stone_node ]))))
+  let spacing_count = board_size - 1 in
+  let pct_of i = Printf.sprintf "%.6f%%" (100. *. (Float.of_int i) /. Float.of_int spacing_count) in
+
+  let intersection_nodes =
+    List.concat_map (List.init board_size ~f:Fn.id) ~f:(fun row ->
+      List.map (List.init board_size ~f:Fn.id) ~f:(fun column ->
+        let cell_value = lookup_cell game_state ~row ~column in
+        let top = pct_of row in
+        let left = pct_of column in
+        let stone_node =
+          match cell_value with
+          | Some stone ->
+            let stone_vdom =
+              match stone.owner with
+              | Player_kind.Black -> black_stone
+              | Player_kind.White -> white_stone
+            in
+            let extra_class =
+              match game_state.last_move with
+              | Some (Move.Place pos) when pos.row = row && pos.column = column ->
+                " slowly_appear"
+              | _ -> ""
+            in
+            Vdom.Node.div
+              ~attrs:
+                [ Vdom.Attr.class_
+                    ("go-stone" ^ extra_class)
+                ]
+              [ stone_vdom ]
+          | None -> Vdom.Node.none
+        in
+        let is_error_cell =
+          match last_error with
+          | Some (err_row, err_col, _msg) -> err_row = row && err_col = column
+          | None -> false
+        in
+        let classes = if is_error_cell then "intersection cell-error" else "intersection" in
+        Vdom.Node.div
+          ~attrs:
+            [ Vdom.Attr.class_ classes
+            ; Vdom.Attr.create "style" (Printf.sprintf "top:%s; left:%s;" top left)
+            ; Vdom.Attr.on_click (fun _ -> if is_game_over then Vdom.Effect.Ignore else inject (Place (row, column)))
+            ]
+    (if Option.is_none cell_value then [] else [ stone_node ])))
+  in
+
+  let board = Vdom.Node.div ~attrs:[ Vdom.Attr.class_ "go-board" ] intersection_nodes
   in
   let game_over_message =
     match game_over_text with
