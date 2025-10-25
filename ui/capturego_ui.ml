@@ -43,12 +43,24 @@ let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again ~last_er
     | _ -> None
   in
   let capture_counters =
+    let turn_text =
+      match game_over_text with
+      | Some txt -> txt
+      | None -> (
+        match game_state.decision with
+        | Decision.In_progress { whose_turn } -> (
+          match whose_turn with
+          | Player_kind.Black -> "Black's Turn"
+          | Player_kind.White -> "White's Turn")
+        | _ -> "")
+    in
     Vdom.Node.div
       ~attrs:[ Vdom.Attr.class_ "capture-counters" ]
       [ Vdom.Node.span
           ~attrs:[ Vdom.Attr.class_ "black-captures" ]
           [ Vdom.Node.text ("Black captures: " ^ Int.to_string game_state.black_captures)
           ]
+      ; Vdom.Node.span ~attrs:[ Vdom.Attr.class_ "turn-indicator" ] [ Vdom.Node.text turn_text ]
       ; Vdom.Node.span
           ~attrs:[ Vdom.Attr.class_ "white-captures" ]
           [ Vdom.Node.text ("White captures: " ^ Int.to_string game_state.white_captures)
@@ -109,13 +121,12 @@ let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again ~last_er
 
   let board = Vdom.Node.div ~attrs:[ Vdom.Attr.class_ "go-board" ] intersection_nodes
   in
-  let game_over_message =
+  let play_again_button =
     match game_over_text with
-    | Some txt ->
+    | Some _ ->
       Vdom.Node.div
         ~attrs:[ Vdom.Attr.class_ "game-over-message" ]
-        [ Vdom.Node.text txt
-        ; Vdom.Node.button
+        [ Vdom.Node.button
             ~attrs:[ Vdom.Attr.on_click (fun _ -> on_play_again) ]
             [ Vdom.Node.text "Play Again" ]
         ]
@@ -123,7 +134,7 @@ let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again ~last_er
   in
   Vdom.Node.div
     ~attrs:[ Vdom.Attr.class_ "capturego-container" ]
-    [ capture_counters; error_banner; board; game_over_message ]
+    [ capture_counters; error_banner; board; play_again_button ]
 ;;
 
 type setup_action = SetGoalCaptures of int [@@deriving sexp]
