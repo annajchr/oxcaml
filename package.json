@@ -1,0 +1,17 @@
+{
+  "name": "oxcaml",
+  "version": "1.0.0",
+  "description": "To play the game, open https://annajchr.github.io/oxcaml/ on your device.",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^24.9.1"
+  }
+}
