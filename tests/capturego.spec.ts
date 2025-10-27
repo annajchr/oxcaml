@@ -151,8 +151,8 @@ test.describe('Capture Go UI Tests', () => {
 
       await placeStoneAt(page, row, col);
 
-      // There should be exactly one stone at the intersection that was clicked
-      // on the board after the first placement. First move defaults to White.
+      // Expect to see one stone at the intersection that was clicked
+      // on the board. First move defaults to White.
       await expect(page.locator('.go-stone')).toHaveCount(1);
       await expect(getStoneElementAt(page, row, col)).toHaveAttribute('fill', 'white');
     });
