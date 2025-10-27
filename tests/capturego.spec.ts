@@ -87,8 +87,9 @@ test.describe('Capture Go UI Tests', () => {
     await expect(page.locator('.turn-indicator')).toHaveText("Black's Turn");
   });
 
-    test('placed stones alternate color based on player turn', async ({ page }) => {
+  test('placed stones alternate color based on player turn', async ({ page }) => {
     await navigateAndStartCaptureGo(page, /* captures= */ 1);
+  
     // First move (White)
     await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
     const firstPlayedStone = page.locator('.go-stone svg circle').first();
@@ -142,8 +143,25 @@ test.describe('Capture Go UI Tests', () => {
     });
 
     test('ko violation error', async ({ page }) => {
-      // TODO
-      test.skip(true, 'TODO');
+      await navigateAndStartCaptureGo(page, /* captures= */ 5);
+
+      // Sequence of moves to get a Ko violation:
+      await placeStoneAt(page, /* row= */ 0, /* col= */ 1); // White
+      await placeStoneAt(page, /* row= */ 1, /* col= */ 1); // Black
+      await placeStoneAt(page, /* row= */ 1, /* col= */ 0); // White
+      await placeStoneAt(page, /* row= */ 2, /* col= */ 0); // Black
+      await placeStoneAt(page, /* row= */ 1, /* col= */ 2); // White
+      await placeStoneAt(page, /* row= */ 2, /* col= */ 2); // Black
+      await placeStoneAt(page, /* row= */ 0, /* col= */ 3); // White
+      await placeStoneAt(page, /* row= */ 3, /* col= */ 1); // Black
+      // White captures Black at (1,1) by playing (2,1)
+      await placeStoneAt(page, /* row= */ 2, /* col= */ 1);
+      // Black attempts to re-capture at (1,1) -> should be Ko violation
+      await placeStoneAt(page, /* row= */ 1, /* col= */ 1);
+
+      await expect(page.locator('.move-error-banner')).toHaveText('Move violates Ko rule');
+      const idx = 1 * 19 + 1;
+      await expect(page.locator('.intersection').nth(idx)).toHaveAttribute('class', /cell-error/);
     });
 
     test('valid move after error clears error behavior from UI', async ({ page }) => {
