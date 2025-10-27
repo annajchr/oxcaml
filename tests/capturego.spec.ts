@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, Locator } from '@playwright/test';
 
 const BASE = 'https://annajchr.github.io/oxcaml/';
 
@@ -9,7 +9,7 @@ const BASE = 'https://annajchr.github.io/oxcaml/';
  * @param page - Page instance used to interact with the UI.
  * @param captures - Number of captures to play to (defaults to 1).
  */
-async function navigateAndStartCaptureGo(page: Page, captures = 1) {
+async function navigateAndStartCaptureGo(page: Page, captures = 1): Promise<void> {
   await page.goto(BASE);
   await page.locator('input[type="number"]').fill(String(captures));
   await page.getByRole('button', { name: 'Start Game' }).click();
@@ -27,14 +27,48 @@ async function navigateAndStartCaptureGo(page: Page, captures = 1) {
  * @param col - board column placement (0 = left). Valid range: 0..18.
  * @throws {Error} If `row` or `col` are outside the valid 0..18 range.
  */
-async function placeStoneAt(page: Page, row: number, col: number) {
+async function placeStoneAt(page: Page, row: number, col: number): Promise<void> {
   const BOARD_SIZE = 19;
   if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
     throw new Error(`placeStoneAt: row and col must be between 0 and ${BOARD_SIZE - 1}`);
   }
-  const index = row * BOARD_SIZE + col;
-  await page.locator('.intersection').nth(index).click();
+  await getIntersectionElementAt(page, row, col).click();
 }
+
+/**
+ * Return the stone element locator at a board coordinate (row, col).
+ *
+ * @param page - page instance used to interact with the UI.
+ * @param row - board row of element (0 = top).
+ * @param col - board column of element (0 = left).
+ * @throws {Error} If `row` or `col` are outside the valid 0..18 range.
+ */
+function getStoneElementAt(page: Page, row: number, col: number): Locator {
+  const BOARD_SIZE = 19;
+  if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
+    throw new Error(`getStoneElementAt: row and col must be between 0 and ${BOARD_SIZE - 1}`);
+  }
+  const index = row * BOARD_SIZE + col;
+  return page.locator('.intersection').nth(index).locator('.go-stone svg circle').first();
+}
+
+/**
+ * Return the intersection element locator at a board coordinate (row, col).
+ *
+ * @param page - page instance used to interact with the UI.
+ * @param row - board row of element (0 = top).
+ * @param col - board column of element (0 = left).
+ * @throws {Error} If `row` or `col` are outside the valid 0..18 range.
+ */
+function getIntersectionElementAt(page: Page, row: number, col: number): Locator {
+  const BOARD_SIZE = 19;
+  if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
+    throw new Error(`getIntersectionElementAt: row and col must be between 0 and ${BOARD_SIZE - 1}`);
+  }
+  const index = row * BOARD_SIZE + col;
+  return page.locator('.intersection').nth(index);
+}
+
 test.describe('Capture Go UI Tests', () => {
   test('front page shows expected text and input', async ({ page }) => {
     await page.goto(BASE);
@@ -62,7 +96,7 @@ test.describe('Capture Go UI Tests', () => {
   test('initial board is empty', async ({ page }) => {
     await navigateAndStartCaptureGo(page, /* captures= */1);
 
-    // Explect no stones and all empty intersections.
+    // Expect no stones on a 19 x 19 go board.
     // ( There are 361 total intersections on a 19 x 19 go board. )
     await expect(page.locator('.go-stone')).toHaveCount(0);
     await expect(page.locator('.intersection')).toHaveCount(361);
@@ -73,7 +107,7 @@ test.describe('Capture Go UI Tests', () => {
 
     await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
 
-    // One stone should be present now.
+    // One stone should be present after clicking to place a stone.
     await expect(page.locator('.go-stone')).toHaveCount(1);
   });
 
@@ -89,7 +123,7 @@ test.describe('Capture Go UI Tests', () => {
 
   test('placed stones alternate color based on player turn', async ({ page }) => {
     await navigateAndStartCaptureGo(page, /* captures= */ 1);
-  
+
     // First move (White)
     await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
     const firstPlayedStone = page.locator('.go-stone svg circle').first();
@@ -100,85 +134,104 @@ test.describe('Capture Go UI Tests', () => {
     const secondPlayedStone = page.locator('.go-stone svg circle').nth(1);
     await expect(secondPlayedStone).toHaveAttribute('fill', 'black');
   });
-});
 
-  // These tests validates that all move errors should produce expected error behavior:
-  //  - an error banner indicating the error type to the user
-  //  - a red outline around the cell that triggered the error
-  test.describe('Capture Go Move Errors UI Tests', () => {
-    test('space already filled error', async ({ page }) => {
+  // Parameterized placement tests for several board locations (corners, center)
+  const placementCases = [
+    { name: 'top-left', row: 0, col: 0 },
+    { name: 'top-right', row: 0, col: 18 },
+    { name: 'bottom-left', row: 18, col: 0 },
+    { name: 'bottom-right', row: 18, col: 18 },
+    { name: 'center', row: 9, col: 9 },
+  ];
+
+  // Example of how to use parameterized tests in Playwright
+  placementCases.forEach(({ name, row, col }) => {
+    test(`placing a stone at ${name} (${row},${col}) places stone in correct intersection`, async ({ page }) => {
       await navigateAndStartCaptureGo(page, /* captures= */ 1);
 
-      // Place a stone then attempt to place on same intersection
-      await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
-      await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
+      await placeStoneAt(page, row, col);
 
-      // Expect an error banner and the intersection to be marked as error
-      await expect(page.locator('.move-error-banner')).toHaveText('Space already filled');
-      const idx = 9 * 19 + 9;
-      const classes = await page.locator('.intersection').nth(idx).getAttribute('class');
-      expect(classes).toContain('cell-error');
-    });
-
-    test('self-capture violation error', async ({ page }) => {
-      await navigateAndStartCaptureGo(page, /* captures= */ 1);
-
-      // Build up surrounding stones so that the next player's placement would be self-capture.
-      // White moves (we want Black to attempt the self-capture later):
-      await placeStoneAt(page, /* row= */ 8, /* col= */ 9); // W
-      await placeStoneAt(page, /* row= */ 0, /* col= */ 0); // B
-      await placeStoneAt(page, /* row= */ 9, /* col= */ 8); // W
-      await placeStoneAt(page, /* row= */ 0, /* col= */ 1); // B
-      await placeStoneAt(page, /* row= */ 9, /* col= */ 10); // W
-      await placeStoneAt(page, /* row= */ 0, /* col= */ 2); // B
-      await placeStoneAt(page, /* row= */ 10, /* col= */ 9); // W
-
-      // Now it's Black's turn; Black placing at (9,9) would be self-capture
-      await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
-
-      await expect(page.locator('.move-error-banner')).toHaveText('Move would be self-capture');
-      const idx = 9 * 19 + 9;
-      const classes = await page.locator('.intersection').nth(idx).getAttribute('class');
-      expect(classes).toContain('cell-error');
-    });
-
-    test('ko violation error', async ({ page }) => {
-      await navigateAndStartCaptureGo(page, /* captures= */ 5);
-
-      // Sequence of moves to get a Ko violation:
-      await placeStoneAt(page, /* row= */ 0, /* col= */ 1); // White
-      await placeStoneAt(page, /* row= */ 1, /* col= */ 1); // Black
-      await placeStoneAt(page, /* row= */ 1, /* col= */ 0); // White
-      await placeStoneAt(page, /* row= */ 2, /* col= */ 0); // Black
-      await placeStoneAt(page, /* row= */ 1, /* col= */ 2); // White
-      await placeStoneAt(page, /* row= */ 2, /* col= */ 2); // Black
-      await placeStoneAt(page, /* row= */ 0, /* col= */ 3); // White
-      await placeStoneAt(page, /* row= */ 3, /* col= */ 1); // Black
-      // White captures Black at (1,1) by playing (2,1)
-      await placeStoneAt(page, /* row= */ 2, /* col= */ 1);
-      // Black attempts to re-capture at (1,1) -> should be Ko violation
-      await placeStoneAt(page, /* row= */ 1, /* col= */ 1);
-
-      await expect(page.locator('.move-error-banner')).toHaveText('Move violates Ko rule');
-      const idx = 1 * 19 + 1;
-      await expect(page.locator('.intersection').nth(idx)).toHaveAttribute('class', /cell-error/);
-    });
-
-    test('valid move after error clears error behavior from UI', async ({ page }) => {
-      const errIdx = 9 * 19 + 9;
-      await navigateAndStartCaptureGo(page, /* captures= */ 1);
-
-      // Cause a "space already filled" error should trigger error behavior.
-      await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
-      await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
-  
-      await expect(page.locator('.move-error-banner')).toBeVisible();
-      await expect(page.locator('.intersection').nth(errIdx)).toHaveAttribute('class', /cell-error/);
-
-      // Play a legal move elsewhere should clear error behavior.
-      await placeStoneAt(page, /* row= */ 0, /* col= */ 5);
-
-      await expect(page.locator('.move-error-banner')).toBeHidden();
-      await expect(page.locator('.intersection').nth(errIdx)).not.toHaveAttribute('class', /cell-error/);
+      // There should be exactly one stone at the intersection that was clicked
+      // on the board after the first placement. First move defaults to White.
+      await expect(page.locator('.go-stone')).toHaveCount(1);
+      await expect(getStoneElementAt(page, row, col)).toHaveAttribute('fill', 'white');
     });
   });
+});
+
+// These tests validates that all move errors should produce expected error behavior:
+//  - an error banner indicating the error type to the user
+//  - a red outline around the cell that triggered the error
+test.describe('Capture Go Move Errors UI Tests', () => {
+  test('space already filled error', async ({ page }) => {
+    await navigateAndStartCaptureGo(page, /* captures= */ 1);
+
+    // Place a stone then attempt to place on same intersection
+    await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
+    await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
+
+    // Expect an error banner and the intersection to be marked as error
+    await expect(page.locator('.move-error-banner')).toHaveText('Space already filled');
+    const classes = await getIntersectionElementAt(page, 9, 9).getAttribute('class');
+    expect(classes).toContain('cell-error');
+  });
+
+  test('self-capture violation error', async ({ page }) => {
+    await navigateAndStartCaptureGo(page, /* captures= */ 1);
+
+    // Build up surrounding stones so that the next player's placement would be self-capture.
+    // White moves (we want Black to attempt the self-capture later):
+    await placeStoneAt(page, /* row= */ 8, /* col= */ 9); // W
+    await placeStoneAt(page, /* row= */ 0, /* col= */ 0); // B
+    await placeStoneAt(page, /* row= */ 9, /* col= */ 8); // W
+    await placeStoneAt(page, /* row= */ 0, /* col= */ 1); // B
+    await placeStoneAt(page, /* row= */ 9, /* col= */ 10); // W
+    await placeStoneAt(page, /* row= */ 0, /* col= */ 2); // B
+    await placeStoneAt(page, /* row= */ 10, /* col= */ 9); // W
+    // Now it's Black's turn; Black placing at (9,9) would be self-capture
+    await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
+
+    await expect(page.locator('.move-error-banner')).toHaveText('Move would be self-capture');
+    expect(await getIntersectionElementAt(page, 9, 9).getAttribute('class')).toContain('cell-error');
+  });
+
+  test('ko violation error', async ({ page }) => {
+    await navigateAndStartCaptureGo(page, /* captures= */ 5);
+
+    // Sequence of moves to get a Ko violation:
+    await placeStoneAt(page, /* row= */ 0, /* col= */ 1); // White
+    await placeStoneAt(page, /* row= */ 1, /* col= */ 1); // Black
+    await placeStoneAt(page, /* row= */ 1, /* col= */ 0); // White
+    await placeStoneAt(page, /* row= */ 2, /* col= */ 0); // Black
+    await placeStoneAt(page, /* row= */ 1, /* col= */ 2); // White
+    await placeStoneAt(page, /* row= */ 2, /* col= */ 2); // Black
+    await placeStoneAt(page, /* row= */ 0, /* col= */ 3); // White
+    await placeStoneAt(page, /* row= */ 3, /* col= */ 1); // Black
+    // White captures Black at (1,1) by playing (2,1)
+    await placeStoneAt(page, /* row= */ 2, /* col= */ 1);
+    // Black attempts to re-capture at (1,1) -> should be Ko violation
+    await placeStoneAt(page, /* row= */ 1, /* col= */ 1);
+
+    await expect(page.locator('.move-error-banner')).toHaveText('Move violates Ko rule');
+    await expect(getIntersectionElementAt(page, 1, 1)).toHaveAttribute('class', /cell-error/);
+  });
+
+  test('valid move after error clears error behavior from UI', async ({ page }) => {
+    const errIdxRow = 9;
+    const errIdxCol = 9;
+    await navigateAndStartCaptureGo(page, /* captures= */ 1);
+
+    // Cause a "space already filled" error should trigger error behavior.
+    await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
+    await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
+
+    await expect(page.locator('.move-error-banner')).toBeVisible();
+    await expect(getIntersectionElementAt(page, errIdxRow, errIdxCol)).toHaveAttribute('class', /cell-error/);
+
+    // Play a legal move elsewhere should clear error behavior.
+    await placeStoneAt(page, /* row= */ 0, /* col= */ 5);
+
+    await expect(page.locator('.move-error-banner')).toBeHidden();
+    await expect(getIntersectionElementAt(page, errIdxRow, errIdxCol)).not.toHaveAttribute('class', /cell-error/);
+  });
+});
