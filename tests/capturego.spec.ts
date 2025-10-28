@@ -179,8 +179,7 @@ test.describe('Capture Go Move Errors UI Tests', () => {
   test('self-capture violation error', async ({ page }) => {
     await navigateAndStartCaptureGo(page, /* captures= */ 1);
 
-    // Build up surrounding stones so that the next player's placement would be self-capture.
-    // White moves (we want Black to attempt the self-capture later):
+    // Build up surrounding white stones so that the next player's placement would be self-capture.
     await placeStoneAt(page, /* row= */ 8, /* col= */ 9); // W
     await placeStoneAt(page, /* row= */ 0, /* col= */ 0); // B
     await placeStoneAt(page, /* row= */ 9, /* col= */ 8); // W
@@ -188,7 +187,7 @@ test.describe('Capture Go Move Errors UI Tests', () => {
     await placeStoneAt(page, /* row= */ 9, /* col= */ 10); // W
     await placeStoneAt(page, /* row= */ 0, /* col= */ 2); // B
     await placeStoneAt(page, /* row= */ 10, /* col= */ 9); // W
-    // Now it's Black's turn; Black placing at (9,9) would be self-capture
+    //  Black placing at (9,9) would be self-capture
     await placeStoneAt(page, /* row= */ 9, /* col= */ 9);
 
     await expect(page.locator('.move-error-banner')).toHaveText('Move would be self-capture');
