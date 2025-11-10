@@ -38,7 +38,7 @@ end
 
 module Id = struct
   let generate () =
-    let t = (new%js Js.date_now)##getTime |> Js.to_float |> int_of_float in
+    let t = (jsnew Js.date_now ())##getTime |> Js.to_float |> int_of_float in
     let r = Random.int 0x3ffffff in
     Printf.sprintf "%x-%x" t r
   ;;
@@ -141,7 +141,7 @@ module Firebase = struct
         game_id
         capacity
         first_player
-        ((new%js Js.date_now)##toISOString |> Js.to_string)
+        ((jsnew Js.date_now ())##toISOString |> Js.to_string)
     ;;
 
     let encode_players players =
@@ -289,7 +289,7 @@ module Firebase = struct
           }}|}
         game_id
         s
-        ((new%js Js.date_now)##toISOString |> Js.to_string)
+        ((jsnew Js.date_now ())##toISOString |> Js.to_string)
     ;;
 
     let decode ~(game_id : string) json =
