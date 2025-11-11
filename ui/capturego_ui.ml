@@ -238,7 +238,7 @@ module Multiplayer = struct
           "white":{"stringValue":"%s"},
           "black":{"stringValue":""}
         }}}
-      }}}|}
+      }}|}
         (String.escaped game_state_sexp)
         (String.escaped player_id)
     in
@@ -247,12 +247,17 @@ module Multiplayer = struct
          match xhr##.readyState with
          | XmlHttpRequest.DONE ->
            let status = xhr##.status in
+           let response_text = Js.Opt.case xhr##.responseText (fun () -> "") Js.to_string in
            if status >= 200 && status < 300
            then Ivar.fill ivar (Ok ())
            else
              Ivar.fill
                ivar
-               (Error (Printf.sprintf "Failed to create game: %d" status))
+                (Error
+                   (Printf.sprintf
+                      "Failed to create game: %d. Response: %s"
+                      status
+                      response_text))
          | _ -> ());
     ignore (xhr##send (Js.Opt.return (Js.string body)));
     Ivar.read ivar
@@ -298,13 +303,6 @@ module Multiplayer = struct
       (fun () -> claim_seat_async ~game_id ~seat ~client_id ~players)
       ()
   ;;
-end
-
-module Player_role = struct
-  type t =
-    | Local
-    | Online of Player_kind.t
-  [@@deriving sexp, equal]
 end
 
 let board_size = 19
@@ -486,13 +484,6 @@ let app =
       end)
       ~default_model:None
   in
-  let%sub player_role, set_player_role =
-    Bonsai.state
-      (module struct
-        type t = Player_role.t [@@deriving sexp, equal]
-      end)
-      ~default_model:Player_role.Local
-  in
   let%sub () =
     match%sub current_game_id with
     | None -> Bonsai.const ()
@@ -542,47 +533,35 @@ let app =
   and game_id_input = game_id_input
   and set_game_id_input = set_game_id_input
   and setup_error = setup_error
-  and set_setup_error = set_setup_error
-  and player_role = player_role
-  and set_player_role = set_player_role in
+  and set_setup_error = set_setup_error in
   let inject action =
     match action with
     | Place (row, column) ->
       let move = Move.Place { Cell_position.row; column } in
-      let allowed_to_play =
-        match player_role, game_state.decision with
-        | Player_role.Local, _ -> true
-        | Player_role.Online expected, Decision.In_progress { whose_turn } ->
-          Player_kind.equal expected whose_turn
-        | Player_role.Online _, _ -> true
-      in
-      if not allowed_to_play
-      then set_last_error (Some (row, column, "Wait for your turn"))
-      else (
-        match Game_state.make_move game_state move with
-        | Ok new_model ->
-          let open Vdom.Effect.Let_syntax in
-          let%bind () = set_game_state new_model in
-          let%bind () = set_last_error None in
-          (match current_game_id with
-           | Some game_id ->
-             let%bind result =
-               Multiplayer.save_game_state_effect ~game_id ~game_state:new_model
-             in
-             (match result with
-              | Ok () -> Vdom.Effect.Ignore
-              | Error msg -> set_last_error (Some (row, column, "Sync failed: " ^ msg)))
-           | None -> Vdom.Effect.Ignore)
-        | Error err ->
-          let msg =
-            match err with
-            | Game_state.Move_error.Game_is_over -> "Game is already over"
-            | Game_state.Move_error.Space_already_filled -> "Space already filled"
-            | Game_state.Move_error.Illegal_cell_position -> "Illegal cell position"
-            | Game_state.Move_error.Ko_violation -> "Move violates Ko rule"
-            | Game_state.Move_error.Self_capture_violation -> "Move would be self-capture"
-          in
-          set_last_error (Some (row, column, msg)))
+      match Game_state.make_move game_state move with
+      | Ok new_model ->
+        let open Vdom.Effect.Let_syntax in
+        let%bind () = set_game_state new_model in
+        let%bind () = set_last_error None in
+        (match current_game_id with
+         | Some game_id ->
+           let%bind result =
+             Multiplayer.save_game_state_effect ~game_id ~game_state:new_model
+           in
+           (match result with
+            | Ok () -> Vdom.Effect.Ignore
+            | Error msg -> set_last_error (Some (row, column, "Sync failed: " ^ msg)))
+         | None -> Vdom.Effect.Ignore)
+      | Error err ->
+        let msg =
+          match err with
+          | Game_state.Move_error.Game_is_over -> "Game is already over"
+          | Game_state.Move_error.Space_already_filled -> "Space already filled"
+          | Game_state.Move_error.Illegal_cell_position -> "Illegal cell position"
+          | Game_state.Move_error.Ko_violation -> "Move violates Ko rule"
+          | Game_state.Move_error.Self_capture_violation -> "Move would be self-capture"
+        in
+        set_last_error (Some (row, column, msg))
   in
   let on_play_again =
     Vdom.Effect.Many
@@ -593,7 +572,6 @@ let app =
       ; set_last_error None
       ; set_current_game_id None
       ; set_setup_error None
-      ; set_player_role Player_role.Local
       ]
   in
   if not game_started
@@ -624,7 +602,6 @@ let app =
                   let%bind () = set_last_error None in
                   let%bind () = set_setup_error None in
                   let%bind () = set_current_game_id None in
-                  let%bind () = set_player_role Player_role.Local in
                   Vdom.Effect.Ignore))
           ]
         [ Vdom.Node.text "Start Local Game" ]
@@ -656,7 +633,6 @@ let app =
              let%bind () = set_game_state new_state in
              let%bind () = set_goal_captures new_state.goal_captures in
              let%bind () = set_current_game_id (Some normalized_id) in
-             let%bind () = set_player_role (Player_role.Online Player_kind.White) in
              let%bind () = set_game_started false in
              let%bind () = set_last_error None in
              let%bind create_result =
@@ -691,16 +667,10 @@ let app =
            | Error msg -> set_setup_error (Some msg)
            | Ok (seat, existing_players) ->
              let apply_join updated_players =
-               let player_kind =
-                 match seat with
-                 | `White -> Player_kind.White
-                 | `Black -> Player_kind.Black
-               in
                let { Multiplayer.white; black } = updated_players in
                let both_ready = Option.is_some white && Option.is_some black in
                let open Vdom.Effect.Let_syntax in
                let%bind () = set_current_game_id (Some normalized_id) in
-               let%bind () = set_player_role (Player_role.Online player_kind) in
                let%bind () = set_last_error None in
                let%bind () =
                  match state with
@@ -743,18 +713,12 @@ let app =
           [ Vdom.Node.text msg ]
     in
     let waiting_node =
-      match player_role, current_game_id, game_started with
-      | Player_role.Online role, Some gid, false ->
-        let role_text =
-          match role with
-          | Player_kind.White -> "White"
-          | Player_kind.Black -> "Black"
-        in
+      match current_game_id, game_started with
+      | Some gid, false ->
         Vdom.Node.div
           ~attrs:[ Vdom.Attr.class_ "capture-counters" ]
           [ Vdom.Node.span
               [ Vdom.Node.text ("Waiting for opponent... Game ID: " ^ gid) ]
-          ; Vdom.Node.span [ Vdom.Node.text ("You are " ^ role_text ^ " player") ]
           ]
       | _ -> Vdom.Node.none
     in
