@@ -6,6 +6,8 @@ open Js_of_ocaml
 open Async_kernel
 open! Bonsai.Let_syntax
 
+type local_player_kind_t = Player_kind.t option [@@deriving sexp, equal]
+
 module Multiplayer = struct
   let firebase_api_key = "AIzaSyBW10tGiRlPO4bhlmkoQPhz1akEeinPYN8"
   let project_id = "capturegofirebase"
@@ -219,46 +221,28 @@ module Multiplayer = struct
       ()
   ;;
 
-  let create_game_async ~game_id ~game_state ~player_id
-    : (unit, string) Result.t Deferred.t
-    =
+  let create_game_async ~game_id ~game_state ~player_id : (unit, string) Result.t Deferred.t =
     let ivar = Ivar.create () in
     let xhr = XmlHttpRequest.create () in
-    let url =
-      Printf.sprintf "%s/games?documentId=%s&key=%s" base_url game_id firebase_api_key
-    in
+    let url = Printf.sprintf "%s/games?documentId=%s&key=%s" base_url game_id firebase_api_key in
     xhr##_open (Js.string "POST") (Js.string url) Js._true;
     xhr##setRequestHeader (Js.string "Content-Type") (Js.string "application/json");
     let game_state_sexp = Game_state.sexp_of_t game_state |> Sexp.to_string in
-    let body =
-      Printf.sprintf
-        {|{"fields":{
-        "state":{"stringValue":"%s"},
-        "players":{"mapValue":{"fields":{
-          "white":{"stringValue":"%s"},
-          "black":{"stringValue":""}
-        }}}
-      }}|}
-        (String.escaped game_state_sexp)
-        (String.escaped player_id)
+    let body = Printf.sprintf
+      "{\"fields\":{\"state\":{\"stringValue\":\"%s\"},\"players\":{\"mapValue\":{\"fields\":{\"white\":{\"stringValue\":\"\"},\"black\":{\"stringValue\":\"%s\"}}}}}}"
+      (String.escaped game_state_sexp)
+      (String.escaped player_id)
     in
-    xhr##.onreadystatechange
-    := Js.wrap_callback (fun _ ->
-         match xhr##.readyState with
-         | XmlHttpRequest.DONE ->
-           let status = xhr##.status in
-           let response_text = Js.Opt.case xhr##.responseText (fun () -> "") Js.to_string in
-           if status >= 200 && status < 300
-           then Ivar.fill ivar (Ok ())
-           else
-             Ivar.fill
-               ivar
-                (Error
-                   (Printf.sprintf
-                      "Failed to create game: %d. Response: %s"
-                      status
-                      response_text))
-         | _ -> ());
+    xhr##.onreadystatechange := Js.wrap_callback (fun _ ->
+      match xhr##.readyState with
+      | XmlHttpRequest.DONE ->
+        let status = xhr##.status in
+        let response_text = Js.Opt.case xhr##.responseText (fun () -> "") Js.to_string in
+        if status >= 200 && status < 300
+        then Ivar.fill ivar (Ok ())
+        else Ivar.fill ivar (Error (Printf.sprintf "Failed to create game: %d. Response: %s" status response_text))
+      | _ -> ()
+    );
     ignore (xhr##send (Js.Opt.return (Js.string body)));
     Ivar.read ivar
   ;;
@@ -334,7 +318,7 @@ module Action = struct
   type t = action [@@deriving sexp]
 end
 
-let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again ~last_error =
+let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again ~last_error ~local_player_kind =
   let is_game_over = Decision.is_game_over game_state.decision in
   let game_over_text =
     match game_state.decision with
@@ -415,7 +399,12 @@ let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again ~last_er
           ~attrs:
             [ Vdom.Attr.class_ classes
             ; Vdom.Attr.create "style" (Printf.sprintf "top:%s; left:%s;" top left)
-            ; Vdom.Attr.on_click (fun _ -> if is_game_over then Vdom.Effect.Ignore else inject (Place (row, column)))
+            ; Vdom.Attr.on_click (fun _ ->
+                if is_game_over then Vdom.Effect.Ignore else
+                match local_player_kind, game_state.decision with
+                | None, Decision.In_progress _ -> inject (Place (row, column))
+                | Some lp, Decision.In_progress { whose_turn } when Player_kind.equal lp whose_turn -> inject (Place (row, column))
+                | _ -> Vdom.Effect.Ignore)
             ]
     (if Option.is_none cell_value then [] else [ stone_node ])))
   in
@@ -433,9 +422,21 @@ let capturego_board ~(game_state : Game_state.t) ~inject ~on_play_again ~last_er
         ]
     | None -> Vdom.Node.none
   in
+  let player_color_text =
+    match local_player_kind with
+    | Some Player_kind.Black ->
+      Vdom.Node.div
+        ~attrs:[ Vdom.Attr.class_ "player-color-indicator black-player" ]
+        [ Vdom.Node.text "You are playing Black" ]
+    | Some Player_kind.White ->
+      Vdom.Node.div
+        ~attrs:[ Vdom.Attr.class_ "player-color-indicator white-player" ]
+        [ Vdom.Node.text "You are playing White" ]
+    | None -> Vdom.Node.none
+  in
   Vdom.Node.div
     ~attrs:[ Vdom.Attr.class_ "capturego-container" ]
-    [ capture_counters; error_banner; board; play_again_button ]
+    [ capture_counters; error_banner; board; play_again_button; player_color_text ]
 ;;
 
 type setup_action = SetGoalCaptures of int [@@deriving sexp]
@@ -484,6 +485,10 @@ let app =
       end)
       ~default_model:None
   in
+  (* Track which color the player controls in multiplayer mode. *)
+  let%sub local_player_kind, set_local_player_kind =
+    Bonsai.state (module struct type t = local_player_kind_t [@@deriving sexp, equal] end) ~default_model:None
+  in
   let%sub () =
     match%sub current_game_id with
     | None -> Bonsai.const ()
@@ -508,6 +513,8 @@ let app =
               set_game_state remote_state
             | _ -> Vdom.Effect.Ignore
           in
+          (* Clear error banner on any successful fetch *)
+          let%bind () = set_last_error None in
           if both_ready && not game_started
           then set_game_started true
           else if (not both_ready) && game_started
@@ -533,7 +540,9 @@ let app =
   and game_id_input = game_id_input
   and set_game_id_input = set_game_id_input
   and setup_error = setup_error
-  and set_setup_error = set_setup_error in
+  and set_setup_error = set_setup_error
+  and local_player_kind = local_player_kind
+  and set_local_player_kind = set_local_player_kind in
   let inject action =
     match action with
     | Place (row, column) ->
@@ -572,6 +581,7 @@ let app =
       ; set_last_error None
       ; set_current_game_id None
       ; set_setup_error None
+      ; set_local_player_kind None
       ]
   in
   if not game_started
@@ -602,6 +612,7 @@ let app =
                   let%bind () = set_last_error None in
                   let%bind () = set_setup_error None in
                   let%bind () = set_current_game_id None in
+                  let%bind () = set_local_player_kind None in
                   Vdom.Effect.Ignore))
           ]
         [ Vdom.Node.text "Start Local Game" ]
@@ -642,7 +653,7 @@ let app =
                  ~player_id:client_id
              in
              (match create_result with
-              | Ok () -> Vdom.Effect.Ignore
+              | Ok () -> set_local_player_kind (Some Player_kind.Black)
               | Error msg -> set_setup_error (Some msg)))
         | Ok (Multiplayer.Found { state; players }) ->
           let { Multiplayer.white = white_player; black = black_player } = players in
@@ -666,7 +677,7 @@ let app =
           (match available_seat with
            | Error msg -> set_setup_error (Some msg)
            | Ok (seat, existing_players) ->
-             let apply_join updated_players =
+             let apply_join ~client_seat updated_players =
                let { Multiplayer.white; black } = updated_players in
                let both_ready = Option.is_some white && Option.is_some black in
                let open Vdom.Effect.Let_syntax in
@@ -682,10 +693,12 @@ let app =
                     | Error _ -> set_setup_error (Some "Goal captures must be at least 1")
                     | Ok new_state -> set_game_state new_state)
                in
+               let pk = match client_seat with `White -> Player_kind.White | `Black -> Player_kind.Black in
+               let%bind () = set_local_player_kind (Some pk) in
                set_game_started both_ready
              in
              (match seat_for_client with
-              | Some _ -> apply_join existing_players
+              | Some (existing_seat, _) -> apply_join ~client_seat:existing_seat existing_players
               | None ->
                 let%bind players_result =
                   Multiplayer.claim_seat_effect
@@ -696,7 +709,7 @@ let app =
                 in
                 (match players_result with
                  | Error msg -> set_setup_error (Some msg)
-                 | Ok updated_players -> apply_join updated_players)))
+                 | Ok updated_players -> apply_join ~client_seat:seat updated_players)))
       end
     in
     let multiplayer_button =
@@ -746,7 +759,7 @@ let app =
       ; waiting_node
       ; setup_error_node
       ])
-  else capturego_board ~game_state ~inject ~on_play_again ~last_error
+  else capturego_board ~game_state ~inject ~on_play_again ~last_error ~local_player_kind
 ;;
 
 let () = Bonsai_web.Start.start ~bind_to_element_with_id:"app" app
