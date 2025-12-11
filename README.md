@@ -2,6 +2,11 @@
 
 To play the game, open https://annajchr.github.io/oxcaml/ on your device.
 
+See the video below for demo of multiplayer functionality:
+
+https://github.com/user-attachments/assets/a7ea096c-1df6-4876-b731-20327b708f13
+
+
 To make a dev-environment, press the green "Code" button, then select "+" next to "Codespaces".  A new Codespace will open.  It currently takes 20-40 minutes to initialize; please be patient.
 
 Once initialized you need to run the following commands:
